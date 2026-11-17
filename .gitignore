@@ -1,0 +1,11 @@
+node_modules
+dist
+.cache
+.venv
+artifact
+.playwright-mcp
+.DS_Store
+*.log
+__pycache__
+artifact-src
+scripts/build-artifact.py
