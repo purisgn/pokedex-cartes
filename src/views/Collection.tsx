@@ -1,57 +1,47 @@
 import { useDeferredValue, useState } from 'react'
-import { DB, eur, fdate, norm } from '../data'
+import { DB, eur, fdate, norm, type Card } from '../data'
 import { importCollection, ownedByDex, ownedEntries, useStore } from '../store'
-import { CardImg, Icon, TopBar } from '../ui/kit'
+import { CardImg, Header, Icon, SelectPill, Sprite, Stat } from '../ui/kit'
 import { sheet } from './CardSheet'
 
-const SORTS = { recent: 'Plus récentes', dex: 'N° Pokédex', name: 'A–Z', value: 'Valeur' } as const
+type Sort = 'recent' | 'dex' | 'name' | 'value'
+const SORTS: [Sort, string][] = [['recent', 'Plus récentes'], ['dex', 'N° Pokédex'], ['name', 'A – Z'], ['value', 'Valeur']]
+const BY: Record<Sort, (a: { c: Card }, b: { c: Card }) => number> = {
+  recent: (a, b) => (b.c.set.date ?? '').localeCompare(a.c.set.date ?? '') || a.c.i - b.c.i,
+  dex: (a, b) => (a.c.dexId[0] ?? 9999) - (b.c.dexId[0] ?? 9999),
+  name: (a, b) => a.c.name.localeCompare(b.c.name, 'fr'),
+  value: (a, b) => (b.c.price ?? 0) - (a.c.price ?? 0),
+}
 
 export function Collection() {
   useStore()
   const [q, setQ] = useState('')
-  const [sort, setSort] = useState<keyof typeof SORTS>('recent')
+  const [sort, setSort] = useState<Sort>('recent')
   const [backup, setBackup] = useState(false)
   const query = useDeferredValue(norm(q))
   const list = ownedEntries().map(([id, n]) => ({ c: DB.byId.get(id)!, n })).filter((x) => x.c)
   const total = list.reduce((s, x) => s + x.n, 0)
   const value = list.reduce((s, x) => s + (x.c.price ?? 0) * x.n, 0)
-  const shown = list
-    .filter((x) => !query || norm(x.c.name).includes(query) || norm(x.c.set.name).includes(query))
-    .sort({
-      recent: (a: typeof list[0], b: typeof list[0]) => (b.c.set.date ?? '').localeCompare(a.c.set.date ?? '') || a.c.i - b.c.i,
-      dex: (a: typeof list[0], b: typeof list[0]) => (a.c.dexId[0] ?? 9999) - (b.c.dexId[0] ?? 9999),
-      name: (a: typeof list[0], b: typeof list[0]) => a.c.name.localeCompare(b.c.name, 'fr'),
-      value: (a: typeof list[0], b: typeof list[0]) => (b.c.price ?? 0) - (a.c.price ?? 0),
-    }[sort])
+  const shown = list.filter((x) => !query || norm(x.c.name).includes(query) || norm(x.c.set.name).includes(query)).sort(BY[sort])
 
   return (
     <div className="page">
-      <TopBar title="Ma collection" />
-
-      <dl className="stats">
-        <div><dt>Cartes</dt><dd>{total}</dd></div>
-        <div><dt>Différentes</dt><dd>{list.length}</dd></div>
-        <div><dt>Pokémon</dt><dd>{ownedByDex().size}<small> / {DB.dex.length}</small></dd></div>
-        <div><dt>Valeur</dt><dd>{eur(value)}</dd></div>
-      </dl>
-      <p className="note">Valeur selon les prix Cardmarket au {fdate(DB.updated, true)}.</p>
-
+      <Header title="Collection" right={list.length ? <button className="icon-btn" onClick={() => setBackup(!backup)} aria-label="Sauvegarde"><Icon name="folder" size={22} /></button> : undefined} />
       {list.length ? (
         <>
-          <label className="search">
-            <Icon name="search" size={16} stroke={2} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Carte ou extension" autoComplete="off" />
-          </label>
-          <div className="filters">
-            <label className="fpill">
-              <span>{SORTS[sort]}</span><Icon name="chevron" size={14} stroke={2.2} />
-              <select value={sort} onChange={(e) => setSort(e.target.value as keyof typeof SORTS)} aria-label="Trier">
-                {Object.entries(SORTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-              </select>
-            </label>
-            <button className="fpill light" onClick={() => setBackup(!backup)}>Sauvegarde</button>
-          </div>
+          <dl className="stats">
+            <Stat icon="layers" label="Cartes"><span className="pixel">{total}</span></Stat>
+            <Stat icon="cards" label="Différentes"><span className="pixel">{list.length}</span></Stat>
+            <Stat icon="pokeball" label="Pokémon"><span className="pixel">{ownedByDex().size}</span>/{DB.dex.length}</Stat>
+            <Stat icon="euro" label="Valeur">{eur(value)}</Stat>
+          </dl>
+          <p className="hint">Prix Cardmarket au {fdate(DB.updated, true)}.</p>
           {backup && <Backup />}
+          <label className="field">
+            <Icon name="search" size={18} stroke={1.8} />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une carte ou une extension…" autoComplete="off" />
+          </label>
+          <div className="pills"><SelectPill label="Trier" value={sort} onChange={setSort} options={SORTS} /></div>
           <div className="grid">
             {shown.map(({ c, n }) => (
               <button key={c.id} className="gcard" onClick={() => sheet.open(c.id)}>
@@ -64,10 +54,11 @@ export function Collection() {
         </>
       ) : (
         <div className="empty-state">
-          <p className="empty-title">Aucune carte pour l’instant</p>
-          <p>Scanne tes cartes une par une, ou ouvre une extension dans Séries et active l’ajout rapide.</p>
-          <a className="btn" href="#/scan">Scanner mes cartes</a>
-          <button className="btn ghost" onClick={() => setBackup(!backup)}>Restaurer une sauvegarde</button>
+          <Sprite id={129} size={96} className="ghost" />
+          <p className="empty-title">Tu n’as encore aucune carte</p>
+          <p>Scanne tes cartes, ou ouvre une extension dans Séries et active l’ajout rapide.</p>
+          <a className="btn outline" href="#/scan">Scanner mes cartes</a>
+          <button className="link" onClick={() => setBackup(!backup)}>Restaurer une sauvegarde</button>
           {backup && <Backup />}
         </div>
       )}
@@ -82,7 +73,7 @@ function Backup() {
   return (
     <div className="backup">
       <p className="hint">Copie ce texte et garde-le (Notes, mail…). Colle-le ici sur un autre téléphone pour tout retrouver.</p>
-      <button className="btn ghost" onClick={() => navigator.clipboard.writeText(data).then(() => setMsg('Collection copiée'), () => setText(data))}>Copier ma collection</button>
+      <button className="btn outline" onClick={() => navigator.clipboard.writeText(data).then(() => setMsg('Collection copiée'), () => setText(data))}>Copier ma collection</button>
       <textarea value={text} onChange={(e) => setText(e.target.value)} placeholder='{"sv03.5-025": 2, …}' aria-label="Sauvegarde à restaurer" />
       <button className="btn" disabled={!text.trim()} onClick={() => {
         try { setMsg(importCollection(JSON.parse(text)) + ' cartes restaurées') } catch { setMsg('Ce texte n’est pas une sauvegarde valide') }

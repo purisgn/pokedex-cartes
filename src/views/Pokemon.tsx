@@ -1,70 +1,60 @@
 import { useState } from 'react'
 import { DB, eur } from '../data'
 import { GENS, TYPES } from '../types'
-import { isFav, ownedByDex, qty, toggleFav, useStore } from '../store'
-import { back, go } from '../App'
-import { Ball, CardImg, Icon, Sprite, TypePill, pastel } from '../ui/kit'
+import { isFav, qty, toggleFav, useStore } from '../store'
+import { useSpecies } from '../species'
+import { back } from '../App'
+import { AnimSprite, CardImg, HeartButton, Icon, Stat, TypeChip, TypeMark } from '../ui/kit'
 import { sheet } from './CardSheet'
 
-type Tab = 'mine' | 'all' | 'about'
-
-// Fiche Pokémon (maquette « Pikachu #025 ») : fond pastel du type, grand rond pâle, sprite géant, onglets en pilule.
+// Fiche Pokémon (maquette « Charizard ») : grand disque de la couleur du type, sprite animé,
+// description du Pokédex, caractéristiques encadrées, puis ses cartes.
 export function Pokemon({ id }: { id: number }) {
   useStore()
   const p = DB.dex[id - 1]
+  const info = useSpecies(id)
   const all = (DB.byDex.get(id) ?? []).slice().sort((a, b) => +!!qty(b.id) - +!!qty(a.id) || (b.set.date ?? '').localeCompare(a.set.date ?? ''))
   const owned = all.filter((c) => qty(c.id))
-  const [tab, setTab] = useState<Tab>(owned.length ? 'mine' : 'all')
+  const [mine, setMine] = useState(owned.length > 0)
   if (!p) return <p className="empty">Pokémon introuvable.</p>
-  const t = p.types[0], color = TYPES[t].color
-  const count = owned.reduce((s, c) => s + qty(c.id), 0)
+  const t = p.types[0]
   const value = owned.reduce((s, c) => s + (c.price ?? 0) * qty(c.id), 0)
-  const years = all.map((c) => c.set.date?.slice(0, 4)).filter(Boolean).sort()
-  const fav = isFav(id)
-  const shown = tab === 'mine' ? owned : all
-  const nav = (d: number) => go('pokemon/' + (((id - 1 + d + DB.dex.length) % DB.dex.length) + 1))
-  const random = () => {
-    const have = [...ownedByDex().keys()]
-    const pool = have.length > 1 ? have : DB.dex.map((x) => x.id)
-    go('pokemon/' + pool[Math.floor(Math.random() * pool.length)])
-  }
+  const shown = mine ? owned : all
 
   return (
-    <div className="detail" style={{ ['--c' as string]: color, ['--p' as string]: pastel(t, 45), ['--pp' as string]: pastel(t, 16) }}>
-      <header className="detail-top">
-        <button className="tb-btn" onClick={back} aria-label="Retour"><Icon name="back" size={22} stroke={2} /></button>
-        <h1><Ball className="mini-ball" />{p.name} <span>#{String(id).padStart(3, '0')}</span></h1>
-        <span className="tb-btn" />
-      </header>
-
-      <div className="stage">
-        <button className="stage-arrow" onClick={() => nav(-1)} aria-label="Pokémon précédent"><Icon name="back" size={18} stroke={2.2} /></button>
-        <div className="stage-disc">
-          <Ball className="stage-ball" />
-          <Sprite id={id} size={96} className={'stage-sprite' + (owned.length ? '' : ' silhouette')} />
-        </div>
-        <button className="stage-arrow" onClick={() => nav(1)} aria-label="Pokémon suivant"><Icon name="next" size={18} stroke={2.2} /></button>
+    <div className="detail" style={{ ['--t' as string]: TYPES[t].color }}>
+      <div className="hero">
+        <div className="hero-disc" />
+        <TypeMark type={t} className="hero-mark" />
+        <AnimSprite id={id} className={'hero-sprite' + (owned.length ? '' : ' silhouette')} />
+        <button className="hero-btn left" onClick={back} aria-label="Retour"><Icon name="back" size={26} stroke={2.2} /></button>
+        <span className="hero-btn right"><HeartButton light on={isFav(id)} onClick={() => toggleFav(id)} /></span>
       </div>
-      <div className="stage-types">{p.types.map((x) => <TypePill key={x} type={x} />)}</div>
 
       <div className="page">
-        <div className="tabs" role="tablist">
-          {([['mine', 'Mes cartes'], ['all', 'Toutes'], ['about', 'Infos']] as const).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
-          ))}
-        </div>
+        <h1 className="title">{p.name}</h1>
+        <p className="subtitle pixel">N°{String(id).padStart(3, '0')}</p>
+        <div className="chips">{p.types.map((x) => <TypeChip key={x} type={x} />)}</div>
 
-        {tab === 'about' ? (
-          <div className="about">
-            <dl>
-              <div><dt>Cartes possédées</dt><dd>{count}</dd></div>
-              <div><dt>Versions possédées</dt><dd>{owned.length} sur {all.length}</dd></div>
-              <div><dt>Valeur estimée</dt><dd>{value ? eur(value) : '—'}</dd></div>
-              <div><dt>Région</dt><dd>{GENS[p.gen - 1]} · {p.gen}<sup>e</sup> génération</dd></div>
-              <div><dt>En cartes depuis</dt><dd>{years[0] ?? '—'}</dd></div>
-            </dl>
+        <p className="lore">{info?.text ?? `${p.name}, Pokémon de ${GENS[p.gen - 1]} (${p.gen}ᵉ génération).`}</p>
+
+        <dl className="stats">
+          <Stat icon="weight" label="Poids">{info?.weight != null ? `${info.weight.toLocaleString('fr-FR')} kg` : '—'}</Stat>
+          <Stat icon="ruler" label="Taille">{info?.height != null ? `${info.height.toLocaleString('fr-FR')} m` : '—'}</Stat>
+          <Stat icon="tag" label="Catégorie">{info?.genus ?? '—'}</Stat>
+          <Stat icon="spark" label="Talent">{info?.ability ?? '—'}</Stat>
+          <Stat icon="layers" label="Mes cartes">{owned.length} / {all.length}</Stat>
+          <Stat icon="euro" label="Valeur">{value ? eur(value) : '—'}</Stat>
+        </dl>
+
+        <div className="section-head">
+          <h2>Cartes</h2>
+          <div className="seg">
+            <button className={mine ? 'on' : ''} onClick={() => setMine(true)}>Les miennes</button>
+            <button className={mine ? '' : 'on'} onClick={() => setMine(false)}>Toutes</button>
           </div>
-        ) : shown.length ? (
+        </div>
+        {shown.length ? (
           <div className="grid">
             {shown.map((c) => (
               <button key={c.id} className={'gcard' + (qty(c.id) ? '' : ' miss')} onClick={() => sheet.open(c.id)}>
@@ -75,16 +65,9 @@ export function Pokemon({ id }: { id: number }) {
             ))}
           </div>
         ) : (
-          <p className="empty">Pas encore de carte de {p.name}.<br />Scanne-la pour l’ajouter.</p>
+          <p className="empty">Tu n’as pas encore de carte de {p.name}.</p>
         )}
       </div>
-
-      <nav className="detail-bar" aria-label="Actions">
-        <a href="#/dex" aria-label="Pokédex"><Icon name="grid" size={22} stroke={1.8} /></a>
-        <button onClick={() => toggleFav(id)} className={fav ? 'fav' : ''} aria-pressed={fav} aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}><Icon name="heart" size={23} stroke={1.8} /></button>
-        <button onClick={random} aria-label="Pokémon au hasard"><Icon name="shuffle" size={22} stroke={1.8} /></button>
-        <a href="#/scan" aria-label="Scanner"><Icon name="scan" size={22} stroke={1.8} /></a>
-      </nav>
     </div>
   )
 }

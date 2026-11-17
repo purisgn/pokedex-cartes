@@ -1,7 +1,7 @@
-import { useState } from 'react'
-import { DB, fdate, type CardSet } from '../data'
+import { DB, cardImg, fdate, latestSets, type Card, type CardSet, type Serie } from '../data'
 import { qty, useStore } from '../store'
-import { CardImg, Icon, TopBar } from '../ui/kit'
+import { back } from '../App'
+import { CardImg, Header, Icon } from '../ui/kit'
 
 export const progress = (st: CardSet) => {
   let n = 0
@@ -17,48 +17,82 @@ export function SetMark({ set, big }: { set: CardSet; big?: boolean }) {
   return <span className={'fan' + (big ? ' big' : '')}>{picks.map((c) => <CardImg key={c.id} card={c} />)}</span>
 }
 
+// Illustration d'une série : sa carte Pokémon la plus chère (en général la carte phare).
+const cover = (s: Serie) => {
+  let best: Card | undefined
+  for (const st of s.sets) for (const c of st.cards)
+    if (c.hasImg && c.category === 'Pokémon' && (!best || (c.price ?? 0) > (best.price ?? 0))) best = c
+  return best && cardImg(best, 'high')
+}
+const years = (s: Serie) => {
+  const y = [...new Set(s.sets.map((st) => st.date?.slice(0, 4)).filter(Boolean))].sort()
+  return y.length ? (y[0] === y.at(-1) ? y[0] : `${y[0]} – ${y.at(-1)}`) : ''
+}
+
+// Liste des séries (maquette « Regiões ») : bannières illustrées, nom et années à gauche.
 export function Series() {
   useStore()
-  const [open, setOpen] = useState<string>(() => sessionStorage.getItem('serie-open') ?? DB.series[0]?.id ?? '')
-  const toggle = (id: string) => { const v = open === id ? '' : id; setOpen(v); sessionStorage.setItem('serie-open', v) }
-
   return (
     <div className="page">
-      <TopBar title="Séries" />
-      <p className="lead">{DB.sets.size} extensions françaises, à jour au {fdate(DB.updated, true)}.</p>
-      <ul className="series">
-        {DB.series.map((s) => {
-          const isOpen = open === s.id
-          const n = s.sets.reduce((a, st) => a + progress(st).n, 0)
-          const years = [...new Set(s.sets.map((st) => st.date?.slice(0, 4)).filter(Boolean))].sort()
+      <Header title="Séries" />
+      <h2 className="h2">Nouveautés</h2>
+      <div className="rail">
+        {latestSets(8).map((st) => {
+          const { n, of } = progress(st)
           return (
-            <li key={s.id} className={'serie' + (isOpen ? ' open' : '')}>
-              <button className="serie-head" onClick={() => toggle(s.id)} aria-expanded={isOpen}>
-                <span className="serie-name">{s.name}</span>
-                <span className="serie-meta">{years.length ? (years[0] === years.at(-1) ? years[0] : `${years[0]}–${years.at(-1)}`) : ''}{n ? ` · ${n} cartes` : ''}</span>
-                <span className="serie-chev"><Icon name="chevron" size={16} stroke={2.2} /></span>
-              </button>
-              {isOpen && (
-                <div className="sets">
-                  {s.sets.map((st) => {
-                    const { n, of } = progress(st)
-                    return (
-                      <a key={st.id} href={'#/set/' + st.id} className="set-row">
-                        <span className="set-mark"><SetMark set={st} /></span>
-                        <span className="set-info">
-                          <span className="set-name">{st.name}</span>
-                          <span className="bar"><i style={{ width: `${Math.min(100, (n / of) * 100)}%` }} /></span>
-                        </span>
-                        <span className="set-count"><b>{n}</b>/{of}</span>
-                      </a>
-                    )
-                  })}
-                </div>
-              )}
-            </li>
+            <a key={st.id} href={'#/set/' + st.id} className="release">
+              <span className="release-mark"><SetMark set={st} /></span>
+              <span className="release-name">{st.name}</span>
+              <span className="release-meta">{fdate(st.date)} · <b className="pixel">{n}</b>/{of}</span>
+            </a>
           )
         })}
-      </ul>
+      </div>
+      <h2 className="h2">Toutes les séries</h2>
+      <div className="banners">
+        {DB.series.map((s) => {
+          const img = cover(s)
+          const n = s.sets.reduce((a, st) => a + progress(st).n, 0)
+          return (
+            <a key={s.id} href={'#/serie/' + s.id} className="banner" style={img ? { backgroundImage: `url("${img}")` } : undefined}>
+              <span className="banner-txt">
+                <b>{s.name}</b>
+                <small>{years(s)} · {s.sets.length} extension{s.sets.length > 1 ? 's' : ''}{n ? ` · ${n} possédée${n > 1 ? 's' : ''}` : ''}</small>
+              </span>
+            </a>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// Une série : ses extensions, de la plus récente à la plus ancienne.
+export function SerieView({ id }: { id: string }) {
+  useStore()
+  const s = DB.series.find((x) => x.id === id)
+  if (!s) return <p className="empty">Série introuvable.</p>
+  return (
+    <div className="page">
+      <Header title={s.name} onBack={back} />
+      <p className="lead">{years(s)} · {s.sets.length} extensions</p>
+      <div className="sets">
+        {s.sets.map((st) => {
+          const { n, of } = progress(st)
+          return (
+            <a key={st.id} href={'#/set/' + st.id} className="set-row">
+              <span className="set-mark"><SetMark set={st} /></span>
+              <span className="set-info">
+                <span className="set-name">{st.name}</span>
+                <span className="set-sub">{fdate(st.date)}{st.abbr ? ` · ${st.abbr}` : ''}</span>
+                <span className="bar"><i style={{ width: `${Math.min(100, (n / of) * 100)}%` }} /></span>
+              </span>
+              <span className="set-count"><b className="pixel">{n}</b>/{of}</span>
+              <Icon name="next" size={16} stroke={2} />
+            </a>
+          )
+        })}
+      </div>
     </div>
   )
 }
