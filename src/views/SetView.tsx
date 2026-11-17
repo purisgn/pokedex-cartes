@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { DB, eur, fdate } from '../data'
+import { DB, fdate } from '../data'
 import { addCard, qty, useStore } from '../store'
 import { back } from '../App'
 import { CardImg, Header, SelectPill } from '../ui/kit'
 import { sheet } from './CardSheet'
+import { Meter } from '../ui/collection'
 import { progress, SetMark } from './Series'
 
 type Filter = 'all' | 'own' | 'miss'
@@ -25,11 +26,7 @@ export function SetView({ id }: { id: string }) {
         <SetMark set={st} big />
         <h1 className="title">{st.name}</h1>
         <p className="subtitle">{fdate(st.date, true)}{st.abbr ? ` · ${st.abbr}` : ''}</p>
-        <dl className="stats three">
-          <div className="stat"><dt>Possédées</dt><dd><span className="pixel">{n}</span>/{of}</dd></div>
-          <div className="stat"><dt>Complétion</dt><dd className="pixel">{Math.round((n / of) * 100)}%</dd></div>
-          <div className="stat"><dt>Valeur</dt><dd>{value ? eur(value) : '—'}</dd></div>
-        </dl>
+        <div className="panel set-panel"><Meter label="Collection" n={n} of={of} value={value} /></div>
       </div>
 
       <div className="pills">

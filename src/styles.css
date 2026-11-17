@@ -351,3 +351,82 @@ a:active, button:active:not(:disabled), .pill:active { scale: .96 }
 .profile-sync { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--accent) }
 .profile-sync.error { color: var(--red-600) }
 .profile-sync.offline, .profile-sync.saving { color: var(--text-3) }
+
+/* Collection (maquette « Pokedesk ») */
+.badge { top: auto; bottom: 6px; right: 6px; min-width: 22px; height: 22px; border-radius: 6px; background: var(--gray-900); box-shadow: none; font-size: 12px }
+.panel { margin-top: 14px; padding: 16px; border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); box-shadow: 0 1px 2px rgb(18 19 23 / .04), 0 8px 24px -12px rgb(18 19 23 / .12) }
+.panel-sub { margin-top: 12px; font-size: 13px; color: var(--text-3) }
+.panel-sub b { color: var(--text); font-weight: 600 }
+.meter { display: grid; gap: 8px }
+.meter-top { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-2); font-weight: 500 }
+.meter-top span:last-child { color: var(--text-3); font-weight: 400; font-size: 12px }
+.meter-bar { height: 8px; border-radius: 99px; background: var(--bg-muted); overflow: hidden }
+.meter-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg in oklab, #F4D23C, #F59E3B) }
+.meter-foot { display: grid; grid-template-columns: auto 1fr auto; align-items: baseline; column-gap: 10px }
+.meter-pct { font-size: 22px; line-height: 1 }
+.meter-count { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #D8792A; font-weight: 500 }
+.meter-count .dot { width: 8px; height: 8px; border-radius: 50%; background: #F59E3B; box-shadow: 0 0 0 2px #FDE9D2 }
+.meter-value { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums }
+
+.featured { position: relative; display: flex; align-items: center; width: 100%; height: 168px; margin-top: 4px; padding: 0 0 0 20px; border-radius: var(--r-lg); overflow: hidden; background: var(--t); color: #fff; text-align: left }
+.featured-mark { position: absolute; right: -30px; top: -40px; width: 240px; height: 240px; background: linear-gradient(200deg, rgb(255 255 255 / .35), rgb(255 255 255 / .02)) }
+.featured-txt { position: relative; z-index: 1; flex: 1; min-width: 0; display: grid; gap: 2px }
+.featured-txt small { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; opacity: .85 }
+.featured-txt b { font-size: 22px; font-weight: 600; line-height: 1.15; text-wrap: balance }
+.featured-txt span { font-size: 12.5px; opacity: .9 }
+.featured-txt em { justify-self: start; margin-top: 8px; padding: 4px 10px; border-radius: 99px; background: rgb(255 255 255 / .92); color: var(--text); font: 600 13px var(--font); font-style: normal }
+.featured-card { position: relative; width: 112px; margin: 0 20px -46px 0; rotate: 8deg; border-radius: 6px; box-shadow: 0 14px 28px -10px rgb(0 0 0 / .45); align-self: flex-end }
+
+.seg.wide { display: flex; margin: 22px 0 14px }
+.seg.wide button { flex: 1; height: 38px; font-size: 13px }
+.groups { display: grid; gap: 14px }
+.group { display: grid; gap: 14px; padding: 16px; border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: 0 1px 2px rgb(18 19 23 / .04), 0 8px 24px -14px rgb(18 19 23 / .14) }
+.group-head { display: flex; align-items: center; gap: 12px; color: var(--text) }
+.group-head > svg { color: var(--text-3); flex: none }
+.group-mark { width: 68px; height: 40px; flex: none; display: grid; place-items: center }
+.group-mark .fan { width: 64px; height: 44px; scale: .45 }
+.group-title { flex: 1; min-width: 0; display: grid }
+.group-title b { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.group-title small { font-size: 12px; color: var(--text-3) }
+.tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px }
+.tiles.all { gap: 18px 10px; margin-top: 14px }
+.tile { display: grid; gap: 1px; text-align: left; min-width: 0; content-visibility: auto; contain-intrinsic-size: auto 210px }
+.tile-img { position: relative; display: block; margin-bottom: 6px }
+.tile-kind { font-size: 10.5px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.tile-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.tile-price { font-size: 12px; font-weight: 500; color: var(--text-2); font-variant-numeric: tabular-nums }
+.tile.miss .cimg { filter: grayscale(1); opacity: .3 }
+.soft-btn { display: grid; place-items: center; height: 42px; border-radius: 12px; background: var(--accent-subtle); color: var(--accent); font-size: 13.5px; font-weight: 600 }
+.syncline { display: flex; align-items: center; gap: 8px; padding: 10px 14px; margin-bottom: 14px; border-radius: 12px; background: var(--accent-subtle); color: var(--accent); font-size: 12.5px; font-weight: 500 }
+.syncline span { flex: 1 }
+.syncline b { padding: 5px 12px; border-radius: 99px; background: var(--accent); color: #fff; font-size: 12.5px }
+.syncline.inline { margin: 12px 0 0; padding: 0; background: none; color: var(--text-3); font-weight: 400 }
+.syncline.inline.off { padding: 10px 12px; background: var(--accent-subtle); color: var(--accent); font-weight: 500 }
+.syncline.inline.saved svg { color: var(--success) }
+.syncline.error { color: var(--red-600) }
+.set-panel { width: 100%; margin-top: 16px; text-align: left }
+
+/* Fiche carte : extension, prix, quantité (maquette « Pokedesk ») */
+.set-link { display: flex; align-items: center; gap: 12px; margin-top: 22px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r); color: var(--text) }
+.set-link > svg { color: var(--text-3) }
+.num-pill { padding: 3px 8px; border-radius: 6px; background: var(--t, var(--accent)); color: #fff; font-size: 14px; flex: none }
+.set-link-txt { flex: 1; min-width: 0; display: grid }
+.set-link-txt b { font-size: 14.5px; font-weight: 600 }
+.set-link-txt small { font-size: 12px; color: var(--text-3) }
+.price-card { display: flex; align-items: center; gap: 14px; margin-top: 10px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--r) }
+.price-card .cimg { width: 48px; flex: none; box-shadow: 0 4px 10px -4px rgb(0 0 0 / .3) }
+.price-txt { flex: 1; display: grid }
+.price-txt small, .price-mine small { font-size: 12px; color: var(--text-3) }
+.price-txt b { font-size: 26px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums }
+.price-mine { display: grid; text-align: right }
+.price-mine b { font-size: 15px; font-weight: 600 }
+.trend { font-size: 12px; font-weight: 600 }
+.trend.up { color: var(--success) }
+.trend.down { color: var(--red-600) }
+.trend.flat { color: var(--text-3); font-weight: 500 }
+.buy-row { display: flex; gap: 10px; margin-top: 18px }
+.buy-row .btn { flex: 1 }
+.mini-stepper { display: flex; align-items: center; gap: 2px; height: 50px; padding: 0 4px; border: 1px solid var(--border); border-radius: 999px }
+.mini-stepper button { width: 38px; height: 42px; display: grid; place-items: center; color: var(--accent) }
+.mini-stepper button:disabled { color: var(--border-strong) }
+.mini-stepper b { min-width: 26px; text-align: center; font-size: 20px }

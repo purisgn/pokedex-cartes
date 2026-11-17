@@ -4,7 +4,7 @@ import { qty, setQty, useStore } from '../store'
 import { back, go } from '../App'
 import { tcgType, TYPES, type TypeKey } from '../types'
 import { useLiveCard, type LiveCard } from '../live'
-import { CardImg, Icon, Stat, TypeChip, TypeGlyph, TypeMark } from '../ui/kit'
+import { CardImg, Icon, TypeChip, TypeGlyph, TypeMark } from '../ui/kit'
 
 // Fiche carte, même grammaire que la fiche Pokémon (maquette Junior Saraiva) :
 // disque de la couleur du type, la carte en grand à la place du sprite, puces, caractéristiques encadrées.
@@ -45,24 +45,30 @@ export function CardPage({ id }: { id: string }) {
 
         <Moves live={live.data} loading={!live.done} />
 
-        <dl className="stats">
-          <Stat icon="euro" label="Prix Cardmarket">{price ? eur(price) : '—'}</Stat>
-          <Stat icon="layers" label="Mes exemplaires">{n}</Stat>
-          <Stat icon="calendar" label="Sortie">{fdate(c.set.date) || '—'}</Stat>
-          <Stat icon="tag" label="Illustration">{live.data?.illustrator ?? '—'}</Stat>
-        </dl>
-        <PriceDetail live={live.data} />
+        <a className="set-link" href={'#/set/' + c.set.id}>
+          <span className="num-pill pixel">#{c.localId}</span>
+          <span className="set-link-txt"><b>{c.set.name}</b><small>{c.set.serie.name} · {fdate(c.set.date)}</small></span>
+          <Icon name="next" size={18} stroke={2} />
+        </a>
 
-        <div className="actions">
-          {n ? (
-            <div className="stepper">
-              <button onClick={() => setQty(c.id, n - 1)} aria-label="Retirer un exemplaire"><Icon name="minus" size={20} stroke={2.2} /></button>
-              <span><b>{n}</b> dans ma collection</span>
-              <button onClick={() => setQty(c.id, n + 1)} aria-label="Ajouter un exemplaire"><Icon name="plus" size={20} stroke={2.2} /></button>
-            </div>
-          ) : (
-            <button className="btn" onClick={() => setQty(c.id, 1)}>Ajouter à ma collection</button>
-          )}
+        <div className="price-card">
+          <CardImg card={c} />
+          <div className="price-txt">
+            <small>Prix moyen Cardmarket</small>
+            <b>{price ? eur(price) : '—'}</b>
+            <Trend live={live.data} />
+          </div>
+          {n > 0 && price ? <span className="price-mine"><small>Mes {n}</small><b>{eur(price * n)}</b></span> : null}
+        </div>
+        {live.data?.illustrator && <p className="hint">Illustration : {live.data.illustrator}</p>}
+
+        <div className="buy-row">
+          <div className="mini-stepper">
+            <button onClick={() => setQty(c.id, n - 1)} disabled={!n} aria-label="Retirer un exemplaire"><Icon name="back" size={18} stroke={2.4} /></button>
+            <b className="pixel" aria-live="polite">{n}</b>
+            <button onClick={() => setQty(c.id, n + 1)} aria-label="Ajouter un exemplaire"><Icon name="next" size={18} stroke={2.4} /></button>
+          </div>
+          <button className="btn" onClick={() => setQty(c.id, n + 1)}><Icon name="plus" size={18} stroke={2.4} />{n ? 'Ajouter un exemplaire' : 'Ajouter à ma collection'}</button>
         </div>
 
         <Versions card={c} />
@@ -132,12 +138,14 @@ function Moves({ live, loading }: { live: LiveCard | null; loading: boolean }) {
   )
 }
 
-function PriceDetail({ live }: { live: LiveCard | null }) {
+// Tendance : moyenne des 7 derniers jours comparée à celle des 30 derniers.
+function Trend({ live }: { live: LiveCard | null }) {
   const cm = live?.pricing?.cardmarket
-  const v = (k: string) => (typeof cm?.[k] === 'number' && (cm[k] as number) > 0 ? eur(cm[k] as number) : null)
-  const rows = ([['Plus bas', v('low')], ['Moy. 7 jours', v('avg7')], ['Moy. 30 jours', v('avg30')]] as const).filter(([, x]) => x)
-  if (!rows.length) return null
-  return <p className="price-line">{rows.map(([l, x]) => <span key={l}>{l} <b>{x}</b></span>)}</p>
+  const a7 = typeof cm?.avg7 === 'number' ? cm.avg7 : null, a30 = typeof cm?.avg30 === 'number' ? cm.avg30 : null
+  if (!a7 || !a30) return null
+  const d = (a7 - a30) / a30
+  if (Math.abs(d) < 0.01) return <span className="trend flat">Stable sur 30 jours</span>
+  return <span className={'trend ' + (d > 0 ? 'up' : 'down')}>{d > 0 ? '↗' : '↘'} {d > 0 ? '+' : ''}{Math.round(d * 100)} % sur 7 jours</span>
 }
 
 function Versions({ card }: { card: Card }) {
