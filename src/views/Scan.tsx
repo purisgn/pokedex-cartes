@@ -1,21 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { DB, type Card } from '../data'
 import { addCard, qty, useStore } from '../store'
-import { back } from '../App'
+import { back, go } from '../App'
+import { inkOn, tcgType, TYPES } from '../types'
 import { CardImg, Icon } from '../ui/kit'
 import { SAME_ART, candidates, confident, identify, loadCV, warp, type Match, type Quad } from '../scan/engine'
 import { colorSig, ensureFeatures, shortlist, verify } from '../scan/verify'
 
 type Status = 'start' | 'denied' | 'nocam' | 'loading' | 'error' | 'live'
+type Phase = 'idle' | 'seen' | 'ok'
 const PROC = 720 // côté long de l'image analysée
+const TOAST_MS = 4500
 
 export function Scan() {
   useStore()
+  const root = useRef<HTMLDivElement>(null)
   const video = useRef<HTMLVideoElement>(null)
-  const overlay = useRef<HTMLCanvasElement>(null)
   const guideEl = useRef<HTMLDivElement>(null)
   const [status, setStatus] = useState<Status>('start')
-  const [seen, setSeen] = useState(false)          // une carte est dans le champ
+  const [phase, setPhase] = useState<Phase>('idle')
   const [last, setLast] = useState<{ card: Card; at: number } | null>(null)
   const [choice, setChoice] = useState<Card[] | null>(null)
   const [count, setCount] = useState(0)
@@ -31,30 +34,24 @@ export function Scan() {
   autoRef.current = auto
   paused.current = !!choice
 
+  // La notification d'ajout se range toute seule.
+  useEffect(() => {
+    if (!last) return
+    const t = setTimeout(() => setLast((l) => (l?.at === last.at ? null : l)), TOAST_MS)
+    return () => clearTimeout(t)
+  }, [last])
+
   useEffect(() => {
     let stop = false, stream: MediaStream | null = null, timer = 0
     const proc = document.createElement('canvas'), pctx = proc.getContext('2d', { willReadFrequently: true })!
-    let lastKey = -1, streak = 0, misses = 0, lock = -1
+    let lastKey = -1, streak = 0, misses = 0, lock = -1, okUntil = 0
+    let tracked: number[] = []   // dernières cartes reconnues : vérifiées en premier à l'image suivante
 
     const add = (card: Card, group: number) => {
       addCard(card.id); lock = group
       setLast({ card, at: Date.now() }); setCount((n) => n + 1)
+      okUntil = Date.now() + 900
       navigator.vibrate?.(35)
-    }
-
-    const draw = (q: Quad | null, ok: boolean, sx: number) => {
-      const cv = overlay.current, v = video.current
-      if (!cv || !v) return
-      const W = cv.clientWidth, H = cv.clientHeight
-      if (cv.width !== W * devicePixelRatio) { cv.width = W * devicePixelRatio; cv.height = H * devicePixelRatio }
-      const g = cv.getContext('2d')!
-      g.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0); g.clearRect(0, 0, W, H)
-      if (!q) return
-      const s = Math.max(W / v.videoWidth, H / v.videoHeight), ox = (W - v.videoWidth * s) / 2, oy = (H - v.videoHeight * s) / 2
-      g.beginPath()
-      q.forEach(([x, y], k) => { const px = x * sx * s + ox, py = y * sx * s + oy; if (k) g.lineTo(px, py); else g.moveTo(px, py) })
-      g.closePath(); g.lineWidth = 3; g.lineJoin = 'round'
-      g.strokeStyle = ok ? '#4ADE80' : 'rgba(255,255,255,.9)'; g.stroke()
     }
 
     // Zone de recherche des points-clés : le cadre guide élargi.
@@ -68,7 +65,7 @@ export function Scan() {
 
     // Le cadre guide affiché, ramené dans les coordonnées de l'image analysée (vidéo en « cover »).
     const guideQuad = (v: HTMLVideoElement, k: number): Quad | null => {
-      const el = guideEl.current, box = overlay.current
+      const el = guideEl.current, box = root.current
       if (!el || !box) return null
       const g = el.getBoundingClientRect(), b = box.getBoundingClientRect()
       const s = Math.max(b.width / v.videoWidth, b.height / v.videoHeight)
@@ -77,16 +74,18 @@ export function Scan() {
       return [P(g.left, g.top), P(g.right, g.top), P(g.right, g.bottom), P(g.left, g.bottom)]
     }
 
-    const showDiag = (m: Match | null, n: number, orb = 0) => {
+    const showDiag = (m: Match | null, n: number, orb: number, ms: number) => {
       const c = diagCanvas.current
       if (c && m) { c.width = m.img.width; c.height = m.img.height; c.getContext('2d')!.putImageData(m.img, 0, 0) }
       else if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height)
-      setDiagText(!m ? `${n} contour(s), pas d'analyse`
-        : `${n ? n + ' contour(s)' : 'cadre guide'}${orb ? ` · points-clés ${orb}` : ''} · distance ${m.d1} · suivante ${m.d2}${confident(m.d1, m.d2) ? ' ✓' : ''}\n${m.hits.slice(0, 3).map((h) => `${DB.cards[h.i].name} (${DB.cards[h.i].set.name}) ${h.d}`).join('\n')}`)
+      setDiagText(`${Math.round(ms)} ms · ${n} contour(s)${orb ? ` · points-clés ${orb}` : ''}` + (m
+        ? ` · distance ${m.d1}/${m.d2}${confident(m.d1, m.d2) ? ' ✓' : ''}\n${m.hits.slice(0, 3).map((h) => `${DB.cards[h.i].name} (${DB.cards[h.i].set.name}) ${h.d}`).join('\n')}`
+        : ''))
     }
 
     const tick = (cv: Awaited<ReturnType<typeof loadCV>>['cv']) => {
       if (stop) return
+      const t0 = performance.now()
       const v = video.current
       if (v && v.readyState >= 2 && !paused.current && !document.hidden) {
         const k = PROC / Math.max(v.videoWidth, v.videoHeight)
@@ -102,8 +101,7 @@ export function Scan() {
           ok = !!m && confident(m.d1, m.d2)
           // Carte tenue en main, doigts sur les bords, fond chargé : présélection par couleurs puis points-clés.
           if (!ok && g && DB.colors.length) {
-            const base = c.quads[0]
-            const ids = [...new Set([...shortlist(colorSig(cv, warp(cv, src, base)), 16), ...(m?.hits.slice(0, 4).map((h) => h.i) ?? [])])]
+            const ids = [...new Set([...tracked, ...shortlist(colorSig(cv, warp(cv, src, c.quads[0])), 16), ...(m?.hits.slice(0, 4).map((h) => h.i) ?? [])])]
             ensureFeatures(cv, ids)
             const ver = verify(cv, src, around(g, proc.width, proc.height), ids)
             if (ver.length) {
@@ -112,14 +110,15 @@ export function Scan() {
               if (m2 && confident(m2.d1, m2.d2)) { m = m2; ok = true }
               else if (ver[0].inliers >= 25 && (ver[1]?.inliers ?? 0) * 2 < ver[0].inliers) {
                 m = { quad: ver[0].quad, img: m2?.img ?? m!.img, hits: [{ i: ver[0].i, d: 0 }], d1: 0, d2: 256 }; ok = true
-              } else if (m2) m = { ...m2, quad: ver[0].quad }
-              found = Math.max(found, 1)
+              } else if (m2) m = m2
+              if (ver[0].inliers >= 15) found = Math.max(found, 1)
             }
           }
         } finally { src.delete() }
-        draw(found || ok ? m?.quad ?? null : null, ok, 1 / k)
-        setSeen(found > 0 || ok)
-        if (diagRef.current) showDiag(m, found, orb)
+        if (ok && m) tracked = [m.hits[0].i]
+        else if (misses > 6) tracked = []
+        setPhase(Date.now() < okUntil ? 'ok' : found > 0 || ok ? 'seen' : 'idle')
+        if (diagRef.current) showDiag(m, found, orb, performance.now() - t0)
         if (!m || !ok) {
           if (++misses >= 4) { lock = -1; lastKey = -1; streak = 0 }
         } else {
@@ -135,7 +134,9 @@ export function Scan() {
           }
         }
       }
-      timer = window.setTimeout(() => tick(cv), 90)
+      // Rythme adapté à l'appareil : on laisse toujours un peu de temps libre à l'interface.
+      const spent = performance.now() - t0
+      timer = window.setTimeout(() => tick(cv), Math.max(40, Math.min(160, spent * 0.6)))
     }
 
     ;(async () => {
@@ -172,17 +173,17 @@ export function Scan() {
     track.applyConstraints({ advanced: [{ torch: !torch } as MediaTrackConstraintSet] }).then(() => setTorch(!torch), () => setTorch(null))
   }
   const pick = (c: Card) => { addCard(c.id); setLast({ card: c, at: Date.now() }); setCount((n) => n + 1); setChoice(null); navigator.vibrate?.(35) }
+  const undo = (c: Card) => { addCard(c.id, -1); setCount((n) => Math.max(0, n - 1)); setLast(null) }
 
   return (
-    <div className="scan">
+    <div className="scan" ref={root}>
       <video ref={video} playsInline muted autoPlay className="scan-video" />
-      <canvas ref={overlay} className="scan-overlay" />
-      <div ref={guideEl} className={'scan-guide' + (seen ? ' seen' : '')}><i /><i /><i /><i /></div>
+      <div ref={guideEl} className={'scan-guide ' + phase}><i /><i /><i /><i /></div>
 
       <header className="scan-top">
         <button className="round" onClick={back} aria-label="Fermer le scanner"><Icon name="close" size={22} stroke={2} /></button>
-        <button className="scan-count" onClick={() => { const v = !diag; setDiag(v); localStorage.setItem('scan-diag', v ? '1' : '0') }} aria-pressed={diag}>
-          {count ? `${count} carte${count > 1 ? 's' : ''} ajoutée${count > 1 ? 's' : ''}` : 'Scanner'}{diag ? ' · diagnostic' : ''}
+        <button className="scan-counter" onClick={() => { const v = !diag; setDiag(v); localStorage.setItem('scan-diag', v ? '1' : '0') }} aria-pressed={diag} aria-label="Cartes ajoutées (toucher pour le diagnostic)">
+          {count ? <><b className="pixel">{count}</b>{count > 1 ? ' cartes ajoutées' : ' carte ajoutée'}</> : 'Prêt à scanner'}
         </button>
         {torch !== null
           ? <button className={'round' + (torch ? ' on' : '')} onClick={toggleTorch} aria-label="Lampe" aria-pressed={torch}><Icon name="bolt" size={20} stroke={2} /></button>
@@ -199,7 +200,7 @@ export function Scan() {
       <p className="scan-tip" role="status">
         {status === 'start' && 'Ouverture de la caméra…'}
         {status === 'loading' && 'Préparation du scanner…'}
-        {status === 'live' && (seen ? 'Carte détectée, garde-la bien en face' : 'Place la carte dans le cadre, tu peux la tenir en main')}
+        {status === 'live' && (phase === 'ok' ? 'Ajoutée !' : phase === 'seen' ? 'Carte repérée, ne bouge plus' : 'Place la carte dans le cadre, même tenue en main')}
       </p>
 
       {(status === 'denied' || status === 'nocam' || status === 'error') && (
@@ -210,39 +211,52 @@ export function Scan() {
       )}
 
       <div className="scan-bottom">
-        <label className="switch dark">
-          <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); localStorage.setItem('scan-auto', e.target.checked ? '1' : '0') }} />
-          <span className="track"><span className="thumb" /></span>
-          <span>Ajout automatique</span>
-        </label>
-
         {choice ? (
-          <div className="scan-card">
-            <p className="scan-q">{choice.length > 1 ? 'Quelle version ?' : 'Ajouter cette carte ?'}</p>
+          <section className="scan-sheet" role="dialog" aria-label="Choisir la version">
+            <p className="sheet-title">Quelle version ?</p>
+            <p className="sheet-sub">Cette illustration existe dans {choice.length} extensions.</p>
             <div className="versions">
-              {choice.slice(0, 4).map((c) => (
+              {choice.slice(0, 6).map((c) => (
                 <button key={c.id} onClick={() => pick(c)}>
                   <CardImg card={c} />
-                  <span>{c.set.name}</span>
+                  <b>{c.set.name}</b>
+                  <span className="pixel">{c.localId}</span>
                 </button>
               ))}
             </div>
-            <button className="btn ghost light" onClick={() => setChoice(null)}>Ce n’est pas ça</button>
-          </div>
+            <button className="link" onClick={() => setChoice(null)}>Aucune de celles-ci</button>
+          </section>
         ) : last ? (
-          <div className="scan-card row" key={last.at}>
-            <CardImg card={last.card} />
-            <div className="scan-info">
-              <b>{last.card.name}</b>
-              <span>{last.card.set.name} · {last.card.localId}/{last.card.set.official || last.card.set.cards.length}</span>
-              <span className="ok">Ajoutée · {qty(last.card.id)} exemplaire{qty(last.card.id) > 1 ? 's' : ''}</span>
-            </div>
-            <button className="round light" onClick={() => { addCard(last.card.id, -1); setCount((n) => n - 1); setLast(null) }} aria-label="Annuler l’ajout">
-              <Icon name="undo" size={20} stroke={2} />
-            </button>
-          </div>
-        ) : null}
+          <Toast key={last.at} card={last.card} onUndo={() => undo(last.card)} />
+        ) : (
+          <label className="auto-pill">
+            <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); localStorage.setItem('scan-auto', e.target.checked ? '1' : '0') }} />
+            <span className="track"><span className="thumb" /></span>
+            Ajout automatique
+          </label>
+        )}
       </div>
     </div>
+  )
+}
+
+// Notification d'ajout, dans la grammaire de la fiche carte : teinte du type, carte inclinée, quantité.
+function Toast({ card, onUndo }: { card: Card; onUndo: () => void }) {
+  const t = tcgType(card.type), color = TYPES[t].color
+  const n = qty(card.id)
+  return (
+    <section className="toast" style={{ '--t': color, '--ink': inkOn(color) } as CSSProperties} role="status">
+      <button className="toast-card" onClick={() => go('card/' + encodeURIComponent(card.id))} aria-label={`Ouvrir ${card.name}`}><CardImg card={card} /></button>
+      <div className="toast-txt">
+        <p className="toast-kicker"><span className="toast-check"><Icon name="check" size={12} stroke={3} /></span>Ajoutée à ta collection</p>
+        <b>{card.name}</b>
+        <span>{card.set.name} · <span className="pixel">{card.localId}</span></span>
+      </div>
+      <div className="toast-side">
+        <span className="toast-qty pixel">×{n}</span>
+        <button className="toast-undo" onClick={onUndo}>Annuler</button>
+      </div>
+      <i className="toast-timer" style={{ animationDuration: TOAST_MS + 'ms' }} />
+    </section>
   )
 }

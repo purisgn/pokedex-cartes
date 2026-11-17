@@ -32,6 +32,7 @@ const PATHS = {
   down: <path d="M12 5v14m0 0-5-5m5 5 5-5" />,
   up: <path d="M4 16l6-6 4 4 6-6M15 8h5v5" />,
   downtrend: <path d="M4 8l6 6 4-4 6 6M15 16h5v-5" />,
+  check: <path d="m5 12.5 4.5 4.5L19 7.5" />,
   folder: <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5Z" />,
   weight: <><path d="M7 9h10l2 11H5Z" /><circle cx="12" cy="6" r="2.5" /></>,
   ruler: <path d="M12 4v16M8 4h8M8 20h8" />,
@@ -89,7 +90,7 @@ export function AnimSprite({ id, className }: { id: number; className?: string }
 export function CardImg({ card, q = 'low', className }: { card: Card; q?: 'low' | 'high'; className?: string }) {
   const src = card.hasImg ? cardImg(card, q) : undefined
   return src
-    ? <img className={'cimg ' + (className ?? '')} src={src} alt={card.name} loading="lazy" decoding="async" />
+    ? <img className={'cimg ' + (className ?? '')} src={src} alt={card.name} loading="lazy" decoding="async" crossOrigin="anonymous" />
     : <span className={'cimg ph ' + (className ?? '')}>{card.name}</span>
 }
 

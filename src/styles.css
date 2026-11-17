@@ -386,36 +386,63 @@ main.with-tabs { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) }
 
 /* Scanner */
 .scan { position: fixed; inset: 0; background: #000; color: #fff; overflow: hidden }
-.scan-video, .scan-overlay { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover }
-.scan-overlay { pointer-events: none }
-.scan-guide { position: absolute; left: 50%; top: 45%; width: min(72vw, 330px); aspect-ratio: 63 / 88; translate: -50% -50%; border-radius: var(--r); box-shadow: 0 0 0 100vmax rgb(0 0 0 / .5); pointer-events: none }
-.scan-guide i { position: absolute; width: 30px; height: 30px; border: 3px solid #fff; transition: border-color .2s }
+.scan-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover }
+.scan-guide { position: absolute; left: 50%; top: 45%; width: min(72vw, 330px); aspect-ratio: 63 / 88; translate: -50% -50%; border-radius: var(--r); box-shadow: 0 0 0 100vmax rgb(0 0 0 / .5); pointer-events: none; transition: box-shadow .3s ease-out }
+.scan-guide i { position: absolute; width: 34px; height: 34px; border: 3px solid #fff; transition: border-color .2s ease-out, translate .3s ease-out }
 .scan-guide i:nth-child(1) { top: -2px; left: -2px; border-right: 0; border-bottom: 0; border-top-left-radius: var(--r) }
 .scan-guide i:nth-child(2) { top: -2px; right: -2px; border-left: 0; border-bottom: 0; border-top-right-radius: var(--r) }
 .scan-guide i:nth-child(3) { bottom: -2px; right: -2px; border-left: 0; border-top: 0; border-bottom-right-radius: var(--r) }
 .scan-guide i:nth-child(4) { bottom: -2px; left: -2px; border-right: 0; border-top: 0; border-bottom-left-radius: var(--r) }
-.scan-guide.seen i { border-color: #5DDB95 }
+.scan-guide.seen i { animation: breathe 1.1s ease-in-out infinite }
+.scan-guide.seen i:nth-child(1) { --dx: 4px; --dy: 4px } .scan-guide.seen i:nth-child(2) { --dx: -4px; --dy: 4px }
+.scan-guide.seen i:nth-child(3) { --dx: -4px; --dy: -4px } .scan-guide.seen i:nth-child(4) { --dx: 4px; --dy: -4px }
+.scan-guide.ok i { border-color: #5DDB95 }
+.scan-guide.ok { box-shadow: 0 0 0 100vmax rgb(0 0 0 / .5), 0 0 0 6px rgb(93 219 149 / .35) }
+@keyframes breathe { 50% { translate: var(--dx) var(--dy) } }
 .scan-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: calc(10px + env(safe-area-inset-top, 0px)) var(--gr) 0 var(--gl) }
-.scan-count { font: 500 var(--fs-lg) var(--pixel); color: #fff }
+.scan-counter { height: 40px; padding: 0 16px; border-radius: 999px; background: rgb(255 255 255 / .16); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #fff; font-size: var(--fs-sm); font-weight: 500 }
+.scan-counter b { font-size: var(--fs-lg); margin-right: 2px }
 .round { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: rgb(255 255 255 / .16); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); color: #fff; flex: none }
 .round.on { background: #fff; color: #000 }
 .round.ghost { background: none; backdrop-filter: none }
-.round.light { background: var(--bg-muted); color: var(--text); backdrop-filter: none }
-.scan-tip { position: absolute; left: 0; right: 0; top: calc(45% + min(72vw, 330px) * 88 / 63 / 2 + 18px); text-align: center; font-size: var(--fs-sm); color: rgb(255 255 255 / .88); padding: 0 24px }
+.scan-tip { position: absolute; left: 0; right: 0; top: calc(45% + min(72vw, 330px) * 88 / 63 / 2 + 18px); text-align: center; font-size: var(--fs-sm); font-weight: 500; color: rgb(255 255 255 / .9); padding: 0 24px }
 .scan-msg { position: absolute; left: 24px; right: 24px; top: 50%; translate: 0 -50%; background: var(--bg); color: var(--text-3); border-radius: var(--r-lg); padding: 22px; display: grid; gap: 8px; text-align: center }
-.scan-bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: 12px; justify-items: center; padding: 0 var(--gr) calc(18px + env(safe-area-inset-bottom, 0px)) var(--gl) }
-.switch { display: inline-flex; align-items: center; gap: 10px; font-size: var(--fs-sm); font-weight: 500; color: #fff; cursor: pointer }
-.switch .track { background: rgb(255 255 255 / .3) }
-.scan-card { width: 100%; max-width: 480px; background: var(--bg); color: var(--text); border-radius: var(--r-lg); padding: 12px; animation: rise .22s cubic-bezier(.2, 0, 0, 1) }
-.scan-card.row { display: flex; align-items: center; gap: 12px }
-.scan-card.row .cimg { width: 52px; flex: none }
-.scan-info { flex: 1; min-width: 0; display: grid; font-size: var(--fs-xs); color: var(--text-3) }
-.scan-info b { color: var(--text); font-size: var(--fs-md); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
-.scan-info .ok { color: var(--success); font-weight: 500 }
-.scan-q { font-size: var(--fs-md); font-weight: 600; text-align: center; margin: 2px 0 10px }
-.versions { display: grid; grid-template-columns: repeat(auto-fit, minmax(72px, 1fr)); gap: 10px; margin-bottom: 12px }
-.versions button { display: grid; gap: 4px; font-size: 11px; color: var(--text-3); text-align: center }
-.btn.ghost.light { height: 44px; background: none; color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent) }
+.scan-bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; justify-items: center; padding: 0 var(--gr) calc(18px + env(safe-area-inset-bottom, 0px)) var(--gl) }
+.auto-pill { display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 16px 0 8px; border-radius: 999px; background: rgb(255 255 255 / .16); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: var(--fs-sm); font-weight: 500; cursor: pointer }
+.auto-pill input { position: absolute; opacity: 0; pointer-events: none }
+.auto-pill .track { background: rgb(255 255 255 / .3) }
+.auto-pill input:checked + .track { background: #5DDB95 }
+.auto-pill input:checked + .track .thumb { translate: 16px 0 }
+
+/* Notification d'ajout */
+.toast { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; max-width: 480px; padding: 12px 14px 14px 12px; border-radius: var(--r-lg); overflow: hidden;
+  background: color-mix(in oklab, var(--t) 14%, white); color: var(--text); box-shadow: var(--sh-2); animation: pop .32s cubic-bezier(.2, 0, 0, 1) }
+.toast-card { width: 58px; flex: none; rotate: -6deg; filter: drop-shadow(0 8px 10px color-mix(in oklab, var(--t) 50%, rgb(0 0 0 / .35))) }
+.toast-card .cimg { outline: 0 }
+.toast-txt { flex: 1; min-width: 0; display: grid; gap: 1px }
+.toast-kicker { display: flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 600; color: var(--success) }
+.toast-check { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; background: var(--success); color: #fff }
+.toast-txt b { font-size: var(--fs-lg); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.toast-txt > span { font-size: var(--fs-xs); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.toast-side { display: grid; justify-items: end; gap: 6px; flex: none }
+.toast-qty { padding: 2px 10px; border-radius: 999px; background: var(--t); color: var(--ink); font-size: var(--fs-md) }
+.toast-undo { padding: 4px 2px; font-size: var(--fs-sm); font-weight: 600; color: var(--accent) }
+.toast-timer { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--t); transform-origin: left; animation: shrink linear forwards }
+@keyframes shrink { to { transform: scaleX(0) } }
+@keyframes pop { from { translate: 0 24px; scale: .96; opacity: 0 } }
+
+/* Choix de version */
+.scan-sheet { width: 100%; max-width: 480px; padding: 18px 16px 10px; border-radius: var(--r-lg); background: var(--bg); color: var(--text); box-shadow: var(--sh-2); display: grid; gap: 4px; text-align: center; animation: pop .32s cubic-bezier(.2, 0, 0, 1) }
+.sheet-title { font-size: var(--fs-lg); font-weight: 600 }
+.sheet-sub { font-size: var(--fs-sm); color: var(--text-3) }
+.versions { display: flex; gap: 12px; overflow-x: auto; scrollbar-width: none; margin: 12px -16px 4px; padding: 2px 16px 6px }
+.versions::-webkit-scrollbar { display: none }
+.versions button { flex: none; width: 92px; display: grid; gap: 2px; text-align: left }
+.versions .cimg { margin-bottom: 4px }
+.versions b { font-size: var(--fs-xs); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis }
+.versions span { font-size: var(--fs-xs); color: var(--text-3) }
+.scan-sheet .link { justify-self: center }
+
 .scan-diag { position: absolute; left: var(--gl); top: calc(64px + env(safe-area-inset-top, 0px)); display: flex; gap: 10px; align-items: flex-start; max-width: calc(100% - 32px); background: rgb(0 0 0 / .6); border-radius: var(--r-sm); padding: 8px }
 .scan-diag canvas { width: 64px; aspect-ratio: 245 / 342; border-radius: var(--r-xs); background: #222; flex: none }
 .scan-diag pre { margin: 0; font: 500 11px/1.45 ui-monospace, SFMono-Regular, monospace; white-space: pre-wrap; color: #fff; min-width: 0 }

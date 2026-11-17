@@ -53,17 +53,19 @@ export function shortlist(sig: Float32Array, k = 16): number[] {
 /* ---------- Points-clés des cartes candidates (téléchargées à la demande, gardées en mémoire) ---------- */
 type Feat = { pts: Float32Array; des: CV; w: number; h: number }
 const feats = new Map<number, Feat | 'loading' | 'none'>()
+const failedAt = new Map<number, number>()   // échec de téléchargement : on retentera 20 s plus tard
 const order: number[] = []
-let orb: CV = null, matcher: CV = null
+let orb: CV = null, orbFrame: CV = null, matcher: CV = null
 
 function tools(cv: CV) {
-  orb ??= new cv.ORB(600)
+  orb ??= new cv.ORB(400)
+  orbFrame ??= new cv.ORB(550)
   matcher ??= new cv.BFMatcher(cv.NORM_HAMMING, false)
 }
 
-function detect(cv: CV, gray: CV): { pts: Float32Array; des: CV } {
+function detect(cv: CV, gray: CV, detector: CV = orb): { pts: Float32Array; des: CV } {
   const kps = new cv.KeyPointVector(), des = new cv.Mat(), none = new cv.Mat()
-  orb.detectAndCompute(gray, none, kps, des)
+  detector.detectAndCompute(gray, none, kps, des)
   const pts = new Float32Array(kps.size() * 2)
   for (let i = 0; i < kps.size(); i++) { const p = kps.get(i).pt; pts[i * 2] = p.x; pts[i * 2 + 1] = p.y }
   kps.delete(); none.delete()
@@ -74,11 +76,12 @@ export function ensureFeatures(cv: CV, ids: number[]) {
   tools(cv)
   let running = [...feats.values()].filter((v) => v === 'loading').length
   for (const i of ids) {
-    if (feats.has(i) || running >= 6) continue
+    if (feats.get(i) === 'none' && Date.now() - (failedAt.get(i) ?? 0) > 20000) feats.delete(i)
+    if (feats.has(i) || running >= 4) continue
     const url = cardImg(DB.cards[i], 'low')
     if (!url) { feats.set(i, 'none'); continue }
     feats.set(i, 'loading'); running++
-    fetch(url).then((r) => r.blob()).then((b) => createImageBitmap(b)).then((bmp) => {
+    fetch(url, { mode: 'cors', cache: 'force-cache' }).then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.blob() }).then((b) => createImageBitmap(b)).then((bmp) => {
       const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height
       c.getContext('2d')!.drawImage(bmp, 0, 0)
       const m = cv.imread(c), g = new cv.Mat()
@@ -87,20 +90,25 @@ export function ensureFeatures(cv: CV, ids: number[]) {
       feats.set(i, { ...f, w: bmp.width, h: bmp.height })
       order.push(i)
       while (order.length > 120) { const old = feats.get(order[0]); if (old && typeof old === 'object') old.des.delete(); feats.delete(order.shift()!) }
-    }).catch(() => feats.set(i, 'none'))
+    }).catch(() => { feats.set(i, 'none'); failedAt.set(i, Date.now()) })
   }
 }
 
 export type Verified = { i: number; inliers: number; quad: Quad }
 
-// Cherche, parmi les candidates déjà prêtes, celle dont les points-clés se retrouvent dans l'image (homographie RANSAC).
+// Cherche, parmi les candidates déjà prêtes (dans l'ordre donné), celle dont les points-clés se retrouvent dans l'image.
+// La zone est analysée réduite (ORB est multi-échelle) ; on s'arrête dès qu'une candidate est franchement confirmée.
+const FRAME_W = 420, STRONG = 30
 export function verify(cv: CV, src: CV, roi: { x: number; y: number; w: number; h: number }, ids: number[]): Verified[] {
   tools(cv)
   const ready = ids.map((i) => [i, feats.get(i)] as const).filter((x): x is readonly [number, Feat] => !!x[1] && typeof x[1] === 'object')
   if (!ready.length) return []
-  const r = src.roi(new cv.Rect(roi.x, roi.y, roi.w, roi.h)), g = new cv.Mat()
+  const r = src.roi(new cv.Rect(roi.x, roi.y, roi.w, roi.h)), g = new cv.Mat(), small = new cv.Mat()
   cv.cvtColor(r, g, cv.COLOR_RGBA2GRAY); r.delete()
-  const frame = detect(cv, g); g.delete()
+  const k = Math.min(1, FRAME_W / roi.w)
+  cv.resize(g, small, new cv.Size(Math.round(roi.w * k), Math.round(roi.h * k)), 0, 0, cv.INTER_AREA); g.delete()
+  const frame = detect(cv, small, orbFrame); small.delete()
+  for (let j = 0; j < frame.pts.length; j++) frame.pts[j] /= k
   const out: Verified[] = []
   try {
     if (frame.pts.length < 20) return []
@@ -132,6 +140,7 @@ export function verify(cv: CV, src: CV, roi: { x: number; y: number; w: number; 
         out.push({ i, inliers: inl, quad: q })
       }
       A.delete(); B.delete(); mask.delete(); H.delete()
+      if (inl >= STRONG && inl >= a.length / 2 * 0.4) break
     }
   } finally { frame.des.delete() }
   return out.sort((x, y) => y.inliers - x.inliers)
