@@ -4,7 +4,7 @@ import { GENS, STRONG, TYPES, inkOn, vivid, type TypeKey } from '../types'
 import { isFav, ownedByDex, qty, toggleFav, useStore } from '../store'
 import { useSpecies, type Evo, type SpeciesInfo } from '../species'
 import { back, go } from '../App'
-import { AnimSprite, CardImg, Icon, PokeballMark, Sprite, TypeGlyph } from '../ui/kit'
+import { AnimSprite, CardImg, FolderTabs, Icon, PokeballMark, Sprite, TypeGlyph } from '../ui/kit'
 import { sheet } from './CardSheet'
 
 type Tab = 'about' | 'stats' | 'evo' | 'cards'
@@ -44,11 +44,7 @@ export function Pokemon({ id }: { id: number }) {
       <div className="mon-types">{p.types.map((x) => <span key={x} className="tpill light energy-pill"><span className="type-ico" style={{ background: TYPES[x].color }}><TypeGlyph type={x} size={12} /></span>{TYPES[x].label}</span>)}</div>
 
       <div className="mon-body">
-        <div className="mon-tabs" role="tablist">
-          {([['about', 'Infos'], ['stats', 'Stats'], ['evo', 'Évolution'], ['cards', `Cartes${owned.length ? ' · ' + owned.length : ''}`]] as const).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
-          ))}
-        </div>
+        <FolderTabs tabs={[['about', 'Infos'], ['stats', 'Stats'], ['evo', 'Évolution'], ['cards', `Cartes${owned.length ? ' · ' + owned.length : ''}`]] as const} value={tab} onChange={setTab} />
 
         <div className="mon-panel">
         {tab === 'about' && <About info={info.data} done={info.done} types={p.types} fallback={`${p.name}, Pokémon de ${GENS[p.gen - 1]} (${p.gen}ᵉ génération).`} />}

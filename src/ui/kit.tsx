@@ -1,5 +1,5 @@
 // Composants partagés, tous tirés de la planche « Componentes » de Junior Saraiva.
-import { useState, type CSSProperties, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ENERGY, energyIcon, energyOf, inkOn, typeIcon, type TypeKey } from '../types'
 import { cardImg, type Card } from '../data'
 
@@ -138,5 +138,38 @@ export function Header({ title, onBack, right }: { title: string; onBack?: () =>
       <h1>{title}</h1>
       {right}
     </header>
+  )
+}
+
+// Onglets en intercalaires de dossier : l'onglet actif est une languette du panneau blanc,
+// raccordée au bord par une courbe douce, qui glisse d'un onglet à l'autre.
+const TAB_H = 44, FLARE = 18, TOP_R = 14
+const SIDE = `M0 ${TAB_H + 1} C 11 ${TAB_H + 1} ${FLARE} ${TAB_H - 3} ${FLARE} ${TAB_H - 16} L ${FLARE} ${TOP_R} Q ${FLARE} 0 ${FLARE + TOP_R} 0 L ${FLARE + TOP_R} ${TAB_H + 1} Z`
+export function FolderTabs<K extends string>({ tabs, value, onChange }: { tabs: readonly (readonly [K, string])[]; value: K; onChange: (k: K) => void }) {
+  const box = useRef<HTMLDivElement>(null)
+  const [rects, setRects] = useState<{ x: number; w: number }[]>([])
+  useLayoutEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () => setRects([...el.querySelectorAll('button')].map((b) => ({ x: b.offsetLeft, w: b.offsetWidth })))
+    measure()
+    const ro = new ResizeObserver(measure); ro.observe(el)
+    return () => ro.disconnect()
+  }, [tabs.length])
+  const i = Math.max(0, tabs.findIndex(([k]) => k === value)), r = rects[i]
+  return (
+    <div className="ftabs" ref={box} role="tablist">
+      {rects.map((q, k) => k !== i && <span key={k} className="ftab-veil" style={{ left: q.x, width: q.w }} />)}
+      {r && (
+        <span className="ftab-on" aria-hidden="true" style={{ width: r.w + FLARE * 2, transform: `translateX(${r.x - FLARE}px)` }}>
+          <svg width={FLARE + TOP_R} height={TAB_H + 1}><path d={SIDE} /></svg>
+          <i />
+          <svg width={FLARE + TOP_R} height={TAB_H + 1} style={{ scale: '-1 1' }}><path d={SIDE} /></svg>
+        </span>
+      )}
+      {tabs.map(([k, l]) => (
+        <button key={k} role="tab" aria-selected={k === value} className={k === value ? 'on' : ''} onClick={() => onChange(k)}>{l}</button>
+      ))}
+    </div>
   )
 }

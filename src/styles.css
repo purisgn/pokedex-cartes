@@ -32,8 +32,8 @@
 
 /* Base */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent }
-html { -webkit-text-size-adjust: 100% }
-body { margin: 0; background: var(--bg); color: var(--text); font: 400 var(--fs-md)/1.5 var(--font); -webkit-font-smoothing: antialiased }
+html { -webkit-text-size-adjust: 100%; overscroll-behavior: none }
+body { overscroll-behavior: none; margin: 0; background: var(--bg); color: var(--text); font: 400 var(--fs-md)/1.5 var(--font); -webkit-font-smoothing: antialiased }
 a { color: inherit; text-decoration: none }
 button, input, select, textarea { font: inherit; color: inherit }
 button { background: none; border: 0; padding: 0; cursor: pointer }
@@ -602,3 +602,13 @@ main.with-tabs { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) }
 .energy .glyph { flex: none }
 .card-stage .mon-arrow { top: 50%; bottom: auto; translate: 0 -50% }
 .type-ico { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none }
+
+/* Intercalaires v2 : languette blanche à courbe douce qui glisse, voile clair sur les autres */
+.ftabs { position: relative; z-index: 1; display: flex; gap: 6px; width: 100%; max-width: 560px; margin: 0 auto -1px; padding: 0 calc(var(--gr) + 4px) 0 calc(var(--gl) + 4px) }
+.ftabs button { position: relative; z-index: 2; flex: 1 1 0; min-width: 0; height: 44px; padding: 0 4px; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); opacity: .82; white-space: nowrap; transition: color .25s, opacity .25s }
+.ftabs button.on { color: var(--text); opacity: 1 }
+.ftab-veil { position: absolute; z-index: 0; bottom: 1px; height: 38px; border-radius: 12px 12px 0 0; background: rgb(255 255 255 / .14) }
+.ftab-on { position: absolute; z-index: 1; left: 0; bottom: 0; height: 45px; display: flex; pointer-events: none; transition: transform .38s cubic-bezier(.2, 0, 0, 1), width .38s cubic-bezier(.2, 0, 0, 1) }
+.ftab-on svg { flex: none; display: block; fill: var(--bg) }
+.ftab-on i { flex: 1; background: var(--bg); margin: 0 -0.5px }
+@media (prefers-reduced-motion: reduce) { .ftab-on { transition: none } }

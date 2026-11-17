@@ -4,7 +4,7 @@ import { qty, setQty, useStore } from '../store'
 import { back, go } from '../App'
 import { ENERGY, energyOf, inkOn, vivid } from '../types'
 import { useLiveCard, type LiveCard } from '../live'
-import { CardImg, Energy, Icon, PokeballMark, Sprite } from '../ui/kit'
+import { CardImg, Energy, FolderTabs, Icon, PokeballMark, Sprite } from '../ui/kit'
 
 type Tab = 'infos' | 'moves' | 'price' | 'versions'
 
@@ -44,11 +44,7 @@ export function CardPage({ id }: { id: string }) {
       </div>
 
       <div className="mon-body">
-        <div className="mon-tabs" role="tablist">
-          {([['infos', 'Infos'], ['moves', pokemon ? 'Attaques' : 'Effet'], ['price', 'Prix'], ['versions', 'Versions']] as const).map(([k, l]) => (
-            <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
-          ))}
-        </div>
+        <FolderTabs tabs={[['infos', 'Infos'], ['moves', pokemon ? 'Attaques' : 'Effet'], ['price', 'Prix'], ['versions', 'Versions']] as const} value={tab} onChange={setTab} />
         <div className="mon-panel">
           {tab === 'infos' && <Infos card={c} live={live.data} />}
           {tab === 'moves' && <Moves live={live.data} loading={!live.done} />}
