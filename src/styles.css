@@ -249,3 +249,8 @@ a:active, button:active:not(:disabled), .pill:active { scale: .96 }
 
 /* Grand écran : la barre d'onglets suit la colonne centrale */
 @media (min-width: 600px) { .tabbar { padding-inline: calc((100% - 560px) / 2) } }
+
+/* Diagnostic du scanner (touche le titre « Scanner » pour l'afficher) */
+.scan-diag { position: absolute; left: max(12px, env(safe-area-inset-left, 0px)); top: calc(64px + env(safe-area-inset-top, 0px)); display: flex; gap: 10px; align-items: flex-start; max-width: calc(100% - 24px); background: rgb(0 0 0 / .6); border-radius: 12px; padding: 8px }
+.scan-diag canvas { width: 64px; aspect-ratio: 245 / 342; border-radius: 4px; background: #222; flex: none }
+.scan-diag pre { margin: 0; font: 500 11px/1.45 ui-monospace, SFMono-Regular, monospace; white-space: pre-wrap; color: #fff; min-width: 0 }

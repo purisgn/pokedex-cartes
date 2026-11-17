@@ -45,39 +45,42 @@ function order(pts: Quad): Quad {
 }
 const dist = (a: [number, number], b: [number, number]) => Math.hypot(a[0] - b[0], a[1] - b[1])
 
-// Trouve le contour de carte le plus grand et renvoie ses 4 coins (dans l'image donnée), ou null.
-export function findCard(cv: CV, src: CV): Quad | null {
+// Cherche les contours qui ressemblent à une carte (4 coins, proportions 63×88) ; les plus grands d'abord.
+// On garde plusieurs candidats : sur une table texturée, le plus grand contour n'est pas toujours la carte.
+export function findCards(cv: CV, src: CV, max = 3, soft = false): Quad[] {
   const gray = new cv.Mat(), edges = new cv.Mat(), contours = new cv.MatVector(), hier = new cv.Mat()
   const kernel = cv.Mat.ones(3, 3, cv.CV_8U)
+  const frame = src.cols * src.rows, found: { q: Quad; area: number }[] = []
   try {
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY)
     cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0)
-    cv.Canny(gray, edges, 40, 120)
+    cv.Canny(gray, edges, soft ? 12 : 30, soft ? 45 : 100) // second passage plus sensible : carte peu contrastée avec la table
     cv.dilate(edges, edges, kernel)
-    cv.findContours(edges, contours, hier, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
-    let best = -1, bestArea = 0
+    cv.findContours(edges, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE)
     for (let i = 0; i < contours.size(); i++) {
-      const a = cv.contourArea(contours.get(i))
-      if (a > bestArea) { bestArea = a; best = i }
+      const c = contours.get(i), area = cv.contourArea(c)
+      if (area < 0.05 * frame || area > 0.95 * frame) continue
+      const approx = new cv.Mat()
+      cv.approxPolyDP(c, approx, 0.03 * cv.arcLength(c, true), true)
+      let pts: Quad | null = null
+      if (approx.rows === 4 && cv.isContourConvex(approx)) {
+        pts = []
+        for (let k = 0; k < 4; k++) pts.push([approx.data32S[k * 2], approx.data32S[k * 2 + 1]])
+      } else {
+        const r = cv.minAreaRect(c)
+        if (area / (r.size.width * r.size.height) > 0.85) pts = cv.RotatedRect.points(r).map((p: { x: number; y: number }) => [p.x, p.y])
+      }
+      approx.delete()
+      if (!pts) continue
+      let q = order(pts)
+      if (dist(q[0], q[1]) > dist(q[1], q[2])) q = [q[1], q[2], q[3], q[0]] // carte couchée
+      const w = (dist(q[0], q[1]) + dist(q[3], q[2])) / 2, h = (dist(q[1], q[2]) + dist(q[0], q[3])) / 2
+      if (w / h < CARD_RATIO * 0.82 || w / h > CARD_RATIO * 1.18) continue
+      const tol = 0.03 * src.cols
+      if (found.some((f) => f.q.every((p, k) => dist(p, q[k]) < tol))) continue // doublon (bord intérieur/extérieur du trait)
+      found.push({ q, area: w * h })
     }
-    if (best < 0 || bestArea < 0.1 * src.cols * src.rows) return null
-    const c = contours.get(best), approx = new cv.Mat()
-    cv.approxPolyDP(c, approx, 0.02 * cv.arcLength(c, true), true)
-    let pts: Quad
-    if (approx.rows === 4) {
-      pts = []
-      for (let i = 0; i < 4; i++) pts.push([approx.data32S[i * 2], approx.data32S[i * 2 + 1]])
-    } else {
-      const r = cv.minAreaRect(c)
-      pts = cv.RotatedRect.points(r).map((p: { x: number; y: number }) => [p.x, p.y])
-    }
-    approx.delete()
-    let q = order(pts)
-    if (dist(q[0], q[1]) > dist(q[1], q[2])) q = [q[1], q[2], q[3], q[0]] // carte couchée
-    const w = (dist(q[0], q[1]) + dist(q[3], q[2])) / 2, h = (dist(q[1], q[2]) + dist(q[0], q[3])) / 2
-    const ratio = w / h
-    if (ratio < CARD_RATIO * 0.8 || ratio > CARD_RATIO * 1.2) return null
-    return q
+    return found.sort((a, b) => b.area - a.area).slice(0, max).map((f) => f.q)
   } finally {
     gray.delete(); edges.delete(); contours.delete(); hier.delete(); kernel.delete()
   }
@@ -95,13 +98,15 @@ export function warp(cv: CV, src: CV, q: Quad): ImageData {
 }
 
 // dHash 256 bits de la zone d'illustration (gris PIL, réduction par moyenne de surface).
-export function dhash(img: ImageData, flip = false): Uint8Array {
+export function dhash(img: ImageData, flip = false, inset = 0): Uint8Array {
   const { width: W, height: H, data } = img
-  const x0 = Math.floor(ART[0] * W), y0 = Math.floor(ART[1] * H), x1 = Math.floor(ART[2] * W), y1 = Math.floor(ART[3] * H)
+  // inset : on considère que la vraie carte commence un peu à l'intérieur (ou à l'extérieur si négatif) du contour trouvé.
+  const ix = inset * W, iy = inset * H, IW = W - 2 * ix, IH = H - 2 * iy
+  const x0 = Math.floor(ix + ART[0] * IW), y0 = Math.floor(iy + ART[1] * IH), x1 = Math.floor(ix + ART[2] * IW), y1 = Math.floor(iy + ART[3] * IH)
   const cw = x1 - x0, ch = y1 - y0, OW = N + 1, OH = N
   const g = new Float32Array(cw * ch)
   for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
-    let sx = x0 + x, sy = y0 + y
+    let sx = Math.min(W - 1, Math.max(0, x0 + x)), sy = Math.min(H - 1, Math.max(0, y0 + y))
     if (flip) { sx = W - 1 - sx; sy = H - 1 - sy }
     const k = (sy * W + sx) * 4
     g[y * cw + x] = (data[k] * 299 + data[k + 1] * 587 + data[k + 2] * 114) / 1000
@@ -145,5 +150,35 @@ export function nearest(h: Uint8Array, k = 6): Hit[] {
   return top
 }
 
-export const ACCEPT = 55   // au-delà : pas de carte reconnue (mesuré : bonne carte ≈ 18, carte absente ≥ 78)
 export const SAME_ART = 12 // écart sous lequel deux cartes sont des rééditions de la même illustration
+
+// Mesuré en simulation : bonne carte ≈ 18, carte absente ≥ 78. Une vraie caméra éloigne la bonne carte :
+// on accepte donc aussi une distance plus grande si la carte suivante (autre illustration) est nettement plus loin.
+export const confident = (d1: number, d2: number) => (d1 <= 58 && d2 - d1 >= 16) || (d1 <= 84 && d2 - d1 >= 22)
+
+// Contours de cartes : passage normal, puis sensible ; on ajoute toujours la zone du cadre guide en dernier recours.
+export function candidates(cv: CV, src: CV, guide?: Quad | null): { quads: Quad[]; found: number } {
+  let quads = findCards(cv, src)
+  if (!quads.length) quads = findCards(cv, src, 2, true)
+  const found = quads.length
+  if (guide) quads = [...quads, guide]
+  return { quads, found }
+}
+
+export type Match = { quad: Quad; img: ImageData; hits: Hit[]; d1: number; d2: number }
+
+// Essaie chaque contour candidat, dans les deux sens et avec trois marges ; garde la meilleure correspondance.
+export function identify(cv: CV, src: CV, quads: Quad[]): Match | null {
+  let best: Match | null = null
+  for (const [n, quad] of quads.entries()) {
+    const img = warp(cv, src, quad)
+    for (const inset of n === 0 ? [0, 0.035, -0.02] : [0]) for (const flip of [false, true]) {
+      const hits = nearest(dhash(img, flip, inset), 10)
+      if (!best || hits[0].d < best.d1) {
+        const d1 = hits[0].d, other = hits.find((h) => h.d > d1 + SAME_ART)
+        best = { quad, img, hits, d1, d2: other?.d ?? hits[hits.length - 1].d }
+      }
+    }
+  }
+  return best
+}
