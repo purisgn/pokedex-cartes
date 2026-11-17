@@ -1,6 +1,6 @@
 import { useState, type CSSProperties } from 'react'
 import { DB, eur } from '../data'
-import { GENS, STRONG, TYPES, inkOn, type TypeKey } from '../types'
+import { GENS, STRONG, TYPES, inkOn, vivid, type TypeKey } from '../types'
 import { isFav, ownedByDex, qty, toggleFav, useStore } from '../store'
 import { useSpecies, type Evo, type SpeciesInfo } from '../species'
 import { back, go } from '../App'
@@ -19,7 +19,7 @@ export function Pokemon({ id }: { id: number }) {
   const owned = all.filter((c) => qty(c.id))
   const [tab, setTab] = useState<Tab>('about')
   if (!p) return <p className="empty">Pokémon introuvable.</p>
-  const t = p.types[0], color = TYPES[t].color
+  const t = p.types[0], color = vivid(TYPES[t].color)
   const nav = (d: number) => go('pokemon/' + (((id - 1 + d + DB.dex.length) % DB.dex.length) + 1))
   const random = () => {
     const mine = [...ownedByDex().keys()]
@@ -41,7 +41,7 @@ export function Pokemon({ id }: { id: number }) {
         <button className="mon-arrow left" onClick={() => nav(-1)} aria-label="Pokémon précédent"><Icon name="back" size={18} stroke={2.4} /></button>
         <button className="mon-arrow right" onClick={() => nav(1)} aria-label="Pokémon suivant"><Icon name="next" size={18} stroke={2.4} /></button>
       </div>
-      <div className="mon-types">{p.types.map((x) => <span key={x} className="tpill" style={{ background: TYPES[x].color, color: inkOn(TYPES[x].color) }}>{TYPES[x].label.toLowerCase()}</span>)}</div>
+      <div className="mon-types">{p.types.map((x) => <span key={x} className="tpill light energy-pill"><span className="type-ico" style={{ background: TYPES[x].color }}><TypeGlyph type={x} size={12} /></span>{TYPES[x].label}</span>)}</div>
 
       <div className="mon-body">
         <div className="mon-tabs" role="tablist">
@@ -50,10 +50,12 @@ export function Pokemon({ id }: { id: number }) {
           ))}
         </div>
 
+        <div className="mon-panel">
         {tab === 'about' && <About info={info.data} done={info.done} types={p.types} fallback={`${p.name}, Pokémon de ${GENS[p.gen - 1]} (${p.gen}ᵉ génération).`} />}
         {tab === 'stats' && <Stats info={info.data} done={info.done} />}
         {tab === 'evo' && <Evolutions info={info.data} done={info.done} current={id} />}
         {tab === 'cards' && <Cards all={all} owned={owned} name={p.name} />}
+        </div>
       </div>
 
       <nav className="mon-bar" aria-label="Actions">

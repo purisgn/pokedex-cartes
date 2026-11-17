@@ -2,9 +2,9 @@ import { useRef, useState, type CSSProperties, type PointerEvent, type ReactNode
 import { DB, cardTint, eur, fdate, norm, type Card } from '../data'
 import { qty, setQty, useStore } from '../store'
 import { back, go } from '../App'
-import { inkOn, tcgType, TYPES, type TypeKey } from '../types'
+import { ENERGY, energyOf, inkOn, vivid } from '../types'
 import { useLiveCard, type LiveCard } from '../live'
-import { CardImg, Icon, PokeballMark, Sprite, TypeGlyph } from '../ui/kit'
+import { CardImg, Energy, Icon, PokeballMark, Sprite } from '../ui/kit'
 
 type Tab = 'infos' | 'moves' | 'price' | 'versions'
 
@@ -17,8 +17,8 @@ export function CardPage({ id }: { id: string }) {
   const live = useLiveCard(id)
   const [tab, setTab] = useState<Tab>('infos')
   if (!c) return <p className="empty">Carte introuvable.</p>
-  const t = tcgType(c.type || live.data?.types?.[0])
-  const color = cardTint(c) ?? TYPES[t].color
+  const e = energyOf(c.type || live.data?.types?.[0])
+  const color = vivid(cardTint(c) ?? ENERGY[e].color)
   const n = qty(c.id)
   const i = c.set.cards.indexOf(c)
   const step = (d: number) => i >= 0 && go('card/' + encodeURIComponent(c.set.cards[(i + d + c.set.cards.length) % c.set.cards.length].id))
@@ -39,7 +39,7 @@ export function CardPage({ id }: { id: string }) {
         {i >= 0 && <button className="mon-arrow right" onClick={() => step(1)} aria-label="Carte suivante de l’extension"><Icon name="next" size={18} stroke={2.4} /></button>}
       </div>
       <div className="mon-types">
-        <span className="tpill" style={{ background: TYPES[t].color, color: inkOn(TYPES[t].color) }}>{(c.type || c.category).toLowerCase()}</span>
+        <span className="tpill light energy-pill"><Energy type={c.type || live.data?.types?.[0]} size={20} />{c.type ? ENERGY[e].label : c.category}</span>
         {c.rarity && <span className="tpill light">{c.rarity.toLowerCase()}</span>}
       </div>
 
@@ -49,10 +49,12 @@ export function CardPage({ id }: { id: string }) {
             <button key={k} role="tab" aria-selected={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}</button>
           ))}
         </div>
-        {tab === 'infos' && <Infos card={c} live={live.data} />}
-        {tab === 'moves' && <Moves live={live.data} loading={!live.done} />}
-        {tab === 'price' && <Price card={c} live={live.data} owned={n} />}
-        {tab === 'versions' && <Versions card={c} />}
+        <div className="mon-panel">
+          {tab === 'infos' && <Infos card={c} live={live.data} />}
+          {tab === 'moves' && <Moves live={live.data} loading={!live.done} />}
+          {tab === 'price' && <Price card={c} live={live.data} owned={n} />}
+          {tab === 'versions' && <Versions card={c} />}
+        </div>
       </div>
 
       <nav className="mon-bar card-bar" aria-label="Ma collection">
@@ -68,7 +70,7 @@ const Row = ({ label, children }: { label: string; children: ReactNode }) => <di
 
 function Infos({ card: c, live }: { card: Card; live: LiveCard | null }) {
   const mon = c.dexId.map((d) => DB.dex[d - 1]).find(Boolean)
-  const t = tcgType(c.type || live?.types?.[0])
+  const type = c.type || live?.types?.[0]
   return (
     <div className="about">
       {(live?.description || live?.effect) && c.category !== 'Pokémon' ? <p className="quote">“{live.effect || live.description}”</p> : null}
@@ -76,7 +78,7 @@ function Infos({ card: c, live }: { card: Card; live: LiveCard | null }) {
         <Row label="Extension"><a className="row-link" href={'#/set/' + c.set.id}>{c.set.name}<Icon name="next" size={14} stroke={2.4} /></a></Row>
         <Row label="Numéro"><span className="pixel">{c.localId}</span> / {c.set.official || c.set.cards.length}{c.set.abbr ? ` · ${c.set.abbr}` : ''}</Row>
         {c.rarity && <Row label="Rareté">{c.rarity}</Row>}
-        <Row label="Type"><span className="row-type"><span style={{ background: TYPES[t].color }}><TypeGlyph type={t} size={11} /></span>{c.type || c.category}</span></Row>
+        <Row label="Type"><span className="row-type">{type && <Energy type={type} size={22} />}{type ? ENERGY[energyOf(type)].label : c.category}</span></Row>
         {c.hp ? <Row label="PV"><span className="pixel">{c.hp}</span></Row> : null}
         {live?.stage && <Row label="Stade">{live.stage}{live.evolveFrom ? `, évolue de ${live.evolveFrom}` : ''}</Row>}
         {!live?.stage && live?.trainerType && <Row label="Catégorie">{live.trainerType}</Row>}
@@ -90,10 +92,6 @@ function Infos({ card: c, live }: { card: Card; live: LiveCard | null }) {
   )
 }
 
-function Energy({ type, size = 22 }: { type: string; size?: number }) {
-  const k: TypeKey = tcgType(type)
-  return <span className="energy" title={type} style={{ width: size, height: size, background: TYPES[k].color }}><TypeGlyph type={k} size={size * 0.58} /></span>
-}
 
 function Moves({ live, loading }: { live: LiveCard | null; loading: boolean }) {
   if (loading) return <div className="mon-loading"><span className="skel" /><span className="skel short" /></div>

@@ -1,6 +1,6 @@
 // Composants partagés, tous tirés de la planche « Componentes » de Junior Saraiva.
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { typeIcon, type TypeKey } from '../types'
+import { ENERGY, energyIcon, energyOf, inkOn, typeIcon, type TypeKey } from '../types'
 import { cardImg, type Card } from '../data'
 
 const SPRITE_URL = import.meta.env.BASE_URL + 'sprites.webp'
@@ -57,6 +57,16 @@ export function PokeballMark({ size = 24 }: { size?: number }) {
       <path d="M3.5 12h5.4m6.2 0h5.4" stroke="var(--blue-600)" strokeWidth="1.7" />
       <circle cx="12" cy="12" r="2.6" fill="#fff" stroke="var(--blue-600)" strokeWidth="1.7" />
     </svg>
+  )
+}
+
+// Symbole d'énergie du jeu de cartes : rond de la couleur de l'énergie, symbole imprimé dessus.
+export function Energy({ type, size = 22 }: { type?: string; size?: number }) {
+  const e = energyOf(type), c = ENERGY[e].color, url = `url("${energyIcon(e)}")`
+  return (
+    <span className="energy" title={ENERGY[e].label} style={{ width: size, height: size, background: c }}>
+      <span className="glyph" style={{ width: size * 0.62, height: size * 0.62, background: inkOn(c), maskImage: url, WebkitMaskImage: url }} />
+    </span>
   )
 }
 
