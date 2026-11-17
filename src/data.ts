@@ -28,6 +28,7 @@ export const DB = {
   byId: new Map<string, Card>(),
   byDex: new Map<number, Card[]>(),
   hashes: new Uint8Array(),
+  colors: new Uint8Array(),   // empreinte couleur 6×6 Lab par carte (108 octets), pour le scan en main
 }
 
 export const norm = (s?: string | null) =>
@@ -39,6 +40,8 @@ export async function loadData() {
     fetch(base + 'catalog.json').then((r) => r.json() as Promise<Raw>),
     fetch(base + 'hashes.bin').then((r) => r.arrayBuffer()),
   ])
+  // Les empreintes couleur ne servent qu'au scanner : chargées en arrière-plan.
+  fetch(base + 'colors.bin').then((r) => r.arrayBuffer()).then((b) => { DB.colors = new Uint8Array(b) }).catch(() => {})
   DB.updated = raw.updated
   DB.dex = raw.dex
   DB.hashes = new Uint8Array(hashes)

@@ -86,6 +86,68 @@ export function findCards(cv: CV, src: CV, max = 3, soft = false): Quad[] {
   }
 }
 
+
+// Bords de la carte comme des droites, côté par côté, autour du cadre guide (méthode des scanners de documents).
+// Les doigts qui cachent un bord ne gênent pas : 3 côtés suffisent, le 4ᵉ est déduit du format 63 × 88.
+type Line = { a: [number, number]; d: [number, number]; len: number }
+const cross = (l1: Line, l2: Line): [number, number] | null => {
+  const det = l1.d[0] * l2.d[1] - l1.d[1] * l2.d[0]
+  if (Math.abs(det) < 1e-6) return null
+  const t = ((l2.a[0] - l1.a[0]) * l2.d[1] - (l2.a[1] - l1.a[1]) * l2.d[0]) / det
+  return [l1.a[0] + t * l1.d[0], l1.a[1] + t * l1.d[1]]
+}
+const shift = (l: Line, nx: number, ny: number, dist: number): Line => ({ a: [l.a[0] + nx * dist, l.a[1] + ny * dist], d: l.d, len: l.len })
+
+export function findByLines(cv: CV, src: CV, guide: Quad): Quad | null {
+  const gx0 = Math.min(guide[0][0], guide[3][0]), gx1 = Math.max(guide[1][0], guide[2][0])
+  const gy0 = Math.min(guide[0][1], guide[1][1]), gy1 = Math.max(guide[2][1], guide[3][1])
+  const gw = gx1 - gx0, gh = gy1 - gy0
+  const mx = gw * 0.28, my = gh * 0.22
+  const rx = Math.max(0, Math.round(gx0 - mx)), ry = Math.max(0, Math.round(gy0 - my))
+  const rw = Math.min(src.cols - rx, Math.round(gw + 2 * mx)), rh = Math.min(src.rows - ry, Math.round(gh + 2 * my))
+  if (rw < 40 || rh < 40) return null
+  const roi = src.roi(new cv.Rect(rx, ry, rw, rh))
+  const gray = new cv.Mat(), edges = new cv.Mat(), lines = new cv.Mat()
+  try {
+    cv.cvtColor(roi, gray, cv.COLOR_RGBA2GRAY)
+    cv.GaussianBlur(gray, gray, new cv.Size(5, 5), 0)
+    cv.Canny(gray, edges, 35, 110)
+    cv.HoughLinesP(edges, lines, 1, Math.PI / 180, 35, Math.min(gw, gh) * 0.22, 14)
+    const best: Record<'top' | 'bottom' | 'left' | 'right', { l: Line; score: number } | null> = { top: null, bottom: null, left: null, right: null }
+    for (let i = 0; i < lines.rows; i++) {
+      const x1 = lines.data32S[i * 4] + rx, y1 = lines.data32S[i * 4 + 1] + ry, x2 = lines.data32S[i * 4 + 2] + rx, y2 = lines.data32S[i * 4 + 3] + ry
+      const len = Math.hypot(x2 - x1, y2 - y1)
+      const ang = Math.abs(Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI) % 180
+      const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
+      const l: Line = { a: [x1, y1], d: [(x2 - x1) / len, (y2 - y1) / len], len }
+      const horiz = ang < 22 || ang > 158, vert = Math.abs(ang - 90) < 22
+      const pick = (side: keyof typeof best, off: number, span: number) => {
+        if (Math.abs(off) > span) return
+        const score = len * (1 - Math.abs(off) / span)
+        if (!best[side] || score > best[side]!.score) best[side] = { l, score }
+      }
+      if (horiz && cx > gx0 - mx * 0.3 && cx < gx1 + mx * 0.3) { pick('top', cy - gy0, my * 1.6); pick('bottom', cy - gy1, my * 1.6) }
+      if (vert && cy > gy0 - my * 0.3 && cy < gy1 + my * 0.3) { pick('left', cx - gx0, mx * 1.2); pick('right', cx - gx1, mx * 1.2) }
+    }
+    let { top, bottom, left, right } = { top: best.top?.l, bottom: best.bottom?.l, left: best.left?.l, right: best.right?.l }
+    const found = [top, bottom, left, right].filter(Boolean).length
+    if (found < 3) return null
+    // Côté manquant : parallèle au côté opposé, à la distance que donne le format de la carte.
+    if (top && bottom && left && !right) { const h = Math.abs(cross(left, bottom)![1] - cross(left, top)![1]); right = shift(left, 1, 0, h * CARD_RATIO) }
+    if (top && bottom && right && !left) { const h = Math.abs(cross(right, bottom)![1] - cross(right, top)![1]); left = shift(right, -1, 0, h * CARD_RATIO) }
+    if (left && right && top && !bottom) { const w = Math.abs(cross(top, right)![0] - cross(top, left)![0]); bottom = shift(top, 0, 1, w / CARD_RATIO) }
+    if (left && right && bottom && !top) { const w = Math.abs(cross(bottom, right)![0] - cross(bottom, left)![0]); top = shift(bottom, 0, -1, w / CARD_RATIO) }
+    const q = [cross(top!, left!), cross(top!, right!), cross(bottom!, right!), cross(bottom!, left!)]
+    if (q.some((p) => !p)) return null
+    const quad = q as Quad
+    const w = (dist(quad[0], quad[1]) + dist(quad[3], quad[2])) / 2, h = (dist(quad[1], quad[2]) + dist(quad[0], quad[3])) / 2
+    if (w / h < CARD_RATIO * 0.82 || w / h > CARD_RATIO * 1.18 || w < gw * 0.5 || w > gw * 1.5) return null
+    return quad
+  } finally {
+    roi.delete(); gray.delete(); edges.delete(); lines.delete()
+  }
+}
+
 // Redresse la carte en CW×CH et renvoie ses pixels RGBA.
 export function warp(cv: CV, src: CV, q: Quad): ImageData {
   const from = cv.matFromArray(4, 1, cv.CV_32FC2, q.flat())
@@ -160,6 +222,10 @@ export const confident = (d1: number, d2: number) => (d1 <= 58 && d2 - d1 >= 16)
 export function candidates(cv: CV, src: CV, guide?: Quad | null): { quads: Quad[]; found: number } {
   let quads = findCards(cv, src)
   if (!quads.length) quads = findCards(cv, src, 2, true)
+  if (guide) {
+    const byLines = findByLines(cv, src, guide)
+    if (byLines) quads = [byLines, ...quads]
+  }
   const found = quads.length
   if (guide) quads = [...quads, guide]
   return { quads, found }
@@ -172,7 +238,7 @@ export function identify(cv: CV, src: CV, quads: Quad[]): Match | null {
   let best: Match | null = null
   for (const [n, quad] of quads.entries()) {
     const img = warp(cv, src, quad)
-    for (const inset of n === 0 ? [0, 0.035, -0.02] : [0]) for (const flip of [false, true]) {
+    for (const inset of n < 2 ? [0, 0.035, -0.02] : [0]) for (const flip of [false, true]) {
       const hits = nearest(dhash(img, flip, inset), 10)
       if (!best || hits[0].d < best.d1) {
         const d1 = hits[0].d, other = hits.find((h) => h.d > d1 + SAME_ART)

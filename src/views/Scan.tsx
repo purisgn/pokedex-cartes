@@ -3,7 +3,8 @@ import { DB, type Card } from '../data'
 import { addCard, qty, useStore } from '../store'
 import { back } from '../App'
 import { CardImg, Icon } from '../ui/kit'
-import { SAME_ART, candidates, confident, identify, loadCV, type Match, type Quad } from '../scan/engine'
+import { SAME_ART, candidates, confident, identify, loadCV, warp, type Match, type Quad } from '../scan/engine'
+import { colorSig, ensureFeatures, shortlist, verify } from '../scan/verify'
 
 type Status = 'start' | 'denied' | 'nocam' | 'loading' | 'error' | 'live'
 const PROC = 720 // côté long de l'image analysée
@@ -56,6 +57,15 @@ export function Scan() {
       g.strokeStyle = ok ? '#4ADE80' : 'rgba(255,255,255,.9)'; g.stroke()
     }
 
+    // Zone de recherche des points-clés : le cadre guide élargi.
+    const around = (g: Quad, W: number, H: number) => {
+      const xs = g.map((p) => p[0]), ys = g.map((p) => p[1])
+      const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys)
+      const mx = (x1 - x0) * 0.3, my = (y1 - y0) * 0.2
+      const x = Math.max(0, Math.round(x0 - mx)), y = Math.max(0, Math.round(y0 - my))
+      return { x, y, w: Math.min(W - x, Math.round(x1 - x0 + 2 * mx)), h: Math.min(H - y, Math.round(y1 - y0 + 2 * my)) }
+    }
+
     // Le cadre guide affiché, ramené dans les coordonnées de l'image analysée (vidéo en « cover »).
     const guideQuad = (v: HTMLVideoElement, k: number): Quad | null => {
       const el = guideEl.current, box = overlay.current
@@ -67,12 +77,12 @@ export function Scan() {
       return [P(g.left, g.top), P(g.right, g.top), P(g.right, g.bottom), P(g.left, g.bottom)]
     }
 
-    const showDiag = (m: Match | null, n: number) => {
+    const showDiag = (m: Match | null, n: number, orb = 0) => {
       const c = diagCanvas.current
       if (c && m) { c.width = m.img.width; c.height = m.img.height; c.getContext('2d')!.putImageData(m.img, 0, 0) }
       else if (c) c.getContext('2d')!.clearRect(0, 0, c.width, c.height)
       setDiagText(!m ? `${n} contour(s), pas d'analyse`
-        : `${n ? n + ' contour(s)' : 'cadre guide'} · distance ${m.d1} · suivante ${m.d2}${confident(m.d1, m.d2) ? ' ✓' : ''}\n${m.hits.slice(0, 3).map((h) => `${DB.cards[h.i].name} (${DB.cards[h.i].set.name}) ${h.d}`).join('\n')}`)
+        : `${n ? n + ' contour(s)' : 'cadre guide'}${orb ? ` · points-clés ${orb}` : ''} · distance ${m.d1} · suivante ${m.d2}${confident(m.d1, m.d2) ? ' ✓' : ''}\n${m.hits.slice(0, 3).map((h) => `${DB.cards[h.i].name} (${DB.cards[h.i].set.name}) ${h.d}`).join('\n')}`)
     }
 
     const tick = (cv: Awaited<ReturnType<typeof loadCV>>['cv']) => {
@@ -83,16 +93,33 @@ export function Scan() {
         proc.width = Math.round(v.videoWidth * k); proc.height = Math.round(v.videoHeight * k)
         pctx.drawImage(v, 0, 0, proc.width, proc.height)
         const src = cv.imread(proc)
-        let found = 0, m: Match | null = null
+        let found = 0, m: Match | null = null, ok = false, orb = 0
         try {
-          const c = candidates(cv, src, guideQuad(v, k))
+          const g = guideQuad(v, k)
+          const c = candidates(cv, src, g)
           found = c.found
           m = identify(cv, src, c.quads)
+          ok = !!m && confident(m.d1, m.d2)
+          // Carte tenue en main, doigts sur les bords, fond chargé : présélection par couleurs puis points-clés.
+          if (!ok && g && DB.colors.length) {
+            const base = c.quads[0]
+            const ids = [...new Set([...shortlist(colorSig(cv, warp(cv, src, base)), 16), ...(m?.hits.slice(0, 4).map((h) => h.i) ?? [])])]
+            ensureFeatures(cv, ids)
+            const ver = verify(cv, src, around(g, proc.width, proc.height), ids)
+            if (ver.length) {
+              orb = ver[0].inliers
+              const m2 = identify(cv, src, [ver[0].quad])
+              if (m2 && confident(m2.d1, m2.d2)) { m = m2; ok = true }
+              else if (ver[0].inliers >= 25 && (ver[1]?.inliers ?? 0) * 2 < ver[0].inliers) {
+                m = { quad: ver[0].quad, img: m2?.img ?? m!.img, hits: [{ i: ver[0].i, d: 0 }], d1: 0, d2: 256 }; ok = true
+              } else if (m2) m = { ...m2, quad: ver[0].quad }
+              found = Math.max(found, 1)
+            }
+          }
         } finally { src.delete() }
-        const ok = !!m && confident(m.d1, m.d2)
         draw(found || ok ? m?.quad ?? null : null, ok, 1 / k)
         setSeen(found > 0 || ok)
-        if (diagRef.current) showDiag(m, found)
+        if (diagRef.current) showDiag(m, found, orb)
         if (!m || !ok) {
           if (++misses >= 4) { lock = -1; lastKey = -1; streak = 0 }
         } else {
@@ -172,7 +199,7 @@ export function Scan() {
       <p className="scan-tip" role="status">
         {status === 'start' && 'Ouverture de la caméra…'}
         {status === 'loading' && 'Préparation du scanner…'}
-        {status === 'live' && (seen ? 'Carte détectée, ne bouge plus' : 'Place une carte dans le cadre, sur un fond uni')}
+        {status === 'live' && (seen ? 'Carte détectée, garde-la bien en face' : 'Place la carte dans le cadre, tu peux la tenir en main')}
       </p>
 
       {(status === 'denied' || status === 'nocam' || status === 'error') && (
