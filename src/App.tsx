@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { Icon } from './ui/kit'
 import { Home } from './views/Home'
 import { Pokedex } from './views/Pokedex'
@@ -8,7 +8,7 @@ import { Series } from './views/Series'
 import { SetView } from './views/SetView'
 import { Scan } from './views/Scan'
 import { Collection } from './views/Collection'
-import { CardSheet, sheet } from './views/CardSheet'
+import { CardPage } from './views/CardPage'
 
 // Navigation par l'adresse (#/…) : le bouton retour du téléphone marche partout.
 const readRoute = () => location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent)
@@ -38,14 +38,14 @@ export function App() {
   const [page = '', arg] = route
   const view =
     page === 'pokemon' ? <Pokemon key={arg} id={+arg} /> :
+    page === 'card' ? <CardPage key={arg} id={arg} /> :
     page === 'set' ? <SetView key={arg} id={arg} /> :
     page === 'dex' ? <Pokedex type={arg} /> :
     page === 'types' ? <Types /> :
     page === 'series' ? <Series /> :
     page === 'scan' ? <Scan /> :
     page === 'collection' ? <Collection /> : <Home />
-  const showNav = page !== 'scan' && page !== 'pokemon'
-  const open = useSyncExternalStore(sheet.subscribe, sheet.get)
+  const showNav = page !== 'scan' && page !== 'pokemon' && page !== 'card'
 
   return (
     <>
@@ -62,7 +62,6 @@ export function App() {
           })}
         </nav>
       )}
-      {open && <CardSheet id={open} />}
     </>
   )
 }

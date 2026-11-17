@@ -278,3 +278,72 @@ a:active, button:active:not(:disabled), .fpill:active { scale: .96 }
 .scan-diag pre { margin: 0; font: 500 11px/1.45 ui-monospace, SFMono-Regular, monospace; white-space: pre-wrap; color: #fff; min-width: 0 }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
+
+/* Fiche carte */
+.cardpage { padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px)) }
+.cp-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0 }
+.detail-top h1 .cp-name { color: var(--fg) }
+.cp-no { font-size: 15px; font-weight: 600; color: color-mix(in srgb, var(--fg) 60%, transparent); font-variant-numeric: tabular-nums; white-space: nowrap }
+.cp-no small { font-size: 12px; font-weight: 500 }
+.cp-stage { position: relative; width: min(74vw, 300px); aspect-ratio: 1 / 1.12; display: grid; place-items: center; perspective: 900px }
+.cp-disc { position: absolute; inset: 6% 0 auto; width: 100%; margin: 0 auto }
+.tilt { position: relative; width: 74%; border-radius: 4.5% / 3.2%; transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .5s cubic-bezier(.2, 0, 0, 1); touch-action: pan-y;
+  filter: drop-shadow(0 22px 26px color-mix(in srgb, var(--c) 45%, rgb(40 30 20 / .35))) }
+.tilt.live { transition: transform .08s linear }
+.tilt .cimg { box-shadow: none; outline: 0; border-radius: inherit }
+.tilt-shine { position: absolute; inset: 0; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .3s ease-out;
+  background: radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgb(255 255 255 / .55), rgb(255 255 255 / 0) 45%); mix-blend-mode: soft-light }
+.tilt.live .tilt-shine { opacity: 1 }
+.tilt.holo .tilt-shine { opacity: .12; background:
+  radial-gradient(circle at var(--mx, 50%) var(--my, 30%), rgb(255 255 255 / .6), rgb(255 255 255 / 0) 40%),
+  linear-gradient(115deg, transparent 20%, rgb(255 120 180 / .35) 35%, rgb(255 230 120 / .35) 45%, rgb(120 240 200 / .35) 55%, rgb(120 160 255 / .35) 65%, transparent 80%);
+  background-size: 100% 100%, 250% 250%; background-position: center, var(--mx, 50%) var(--my, 50%); mix-blend-mode: color-dodge }
+.tilt.holo.live .tilt-shine { opacity: .9 }
+.tpill.soft { background: rgb(255 255 255 / .7); color: color-mix(in srgb, var(--fg) 80%, transparent); text-transform: none }
+
+.cp-links { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 calc(-1 * var(--gutter-r)) 16px calc(-1 * var(--gutter-l)); padding: 2px var(--gutter-r) 4px var(--gutter-l) }
+.cp-links::-webkit-scrollbar { display: none }
+.cp-link { flex: none; display: inline-flex; align-items: center; gap: 4px; height: 40px; padding: 0 12px 0 6px; border-radius: 999px; color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap }
+.cp-link.set { padding-left: 16px; background: var(--card); color: var(--fg); box-shadow: var(--shadow) }
+.cp-link-sprite { margin: -4px -2px }
+
+.panel { margin-top: 14px; background: rgb(255 255 255 / .78); border-radius: var(--r); padding: 6px 18px; box-shadow: var(--shadow); display: grid }
+.moves { padding: 4px 18px }
+.move { padding: 14px 0; border-bottom: 1px solid var(--line) }
+.move:last-child { border-bottom: 0 }
+.move-head { display: flex; align-items: center; gap: 10px }
+.move-head b { flex: 1; font-size: 15px; font-weight: 600 }
+.move p { margin-top: 6px; color: #6E6A74; font-size: 13px; line-height: 1.55 }
+.talent { padding: 2px 10px; border-radius: 999px; background: #E25B5B; color: #fff; font-size: 11px; font-weight: 600 }
+.cost { display: inline-flex; gap: 3px }
+.dmg { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums }
+.energy { display: inline-grid; place-items: center; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1.5px rgb(255 255 255 / .5) }
+.quote { padding: 14px 0; color: #6E6A74; font-style: italic; font-size: 13px; line-height: 1.6 }
+.rows { margin: 0 }
+.rows div { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line) }
+.rows div:last-child { border-bottom: 0 }
+.rows dt { color: var(--muted); font-size: 13px; flex: none }
+.rows dd { margin: 0; font-weight: 500; font-size: 13.5px; text-align: right; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap }
+.inline { display: inline-flex; align-items: center; gap: 5px; font-variant-numeric: tabular-nums }
+.skel { display: block; height: 14px; margin: 12px 0; border-radius: 8px; background: linear-gradient(90deg, var(--soft), #fff, var(--soft)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite }
+.skel.short { width: 60% }
+@keyframes shimmer { to { background-position: -200% 0 } }
+
+.price-hero { justify-items: center; text-align: center; padding: 20px 18px }
+.price-hero span { color: var(--muted); font-size: 13px }
+.price-hero b { font-size: 34px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums }
+.price-hero small { color: var(--ok); font-size: 13px; font-weight: 500; margin-top: 2px }
+.price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0 14px }
+.price-grid div { background: rgb(255 255 255 / .78); border-radius: 16px; padding: 10px 14px; box-shadow: var(--shadow); display: grid }
+.price-grid span { font-size: 11.5px; color: var(--muted) }
+.price-grid b { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums }
+
+.cp-action { position: fixed; z-index: 20; left: 0; right: 0; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); display: flex; justify-content: center; padding-inline: var(--gutter-l) var(--gutter-r); pointer-events: none }
+.cp-action > * { pointer-events: auto }
+.cp-add { display: flex; align-items: center; justify-content: center; gap: 8px; width: min(100%, 360px); height: 54px; border-radius: 999px; background: var(--c); color: #fff; font-size: 15px; font-weight: 600;
+  box-shadow: 0 12px 26px -10px color-mix(in srgb, var(--c) 80%, black) }
+.cp-stepper { display: flex; align-items: center; gap: 6px; height: 56px; padding: 6px; border-radius: 999px; background: rgb(255 255 255 / .94); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); box-shadow: 0 1px 2px rgb(80 60 30 / .06), 0 12px 30px -8px rgb(80 60 30 / .22) }
+.cp-stepper button { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--soft) }
+.cp-stepper button.plus { background: var(--c); color: #fff }
+.cp-stepper span { min-width: 140px; text-align: center; color: var(--muted); font-size: 14px }
+.cp-stepper b { color: var(--fg); font-size: 18px; font-weight: 600; margin-right: 3px; font-variant-numeric: tabular-nums }
