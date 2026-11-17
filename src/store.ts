@@ -1,7 +1,8 @@
-// Collection et favoris : gardés sur le téléphone (IndexedDB) et enregistrés en ligne (Supabase)
-// sous un « code de collection » secret, pour survivre à une réinstallation ou changer de téléphone.
-import { get, set } from 'idb-keyval'
+// Collection et favoris : gardés sur le téléphone (IndexedDB) et, une fois connecté, enregistrés
+// sur le compte (Supabase, e-mail + mot de passe). Un compte = la même collection sur tous les téléphones.
+import { get, set, del } from 'idb-keyval'
 import { useSyncExternalStore } from 'react'
+import { createClient } from '@supabase/supabase-js'
 import { DB } from './data'
 
 const owned = new Map<string, number>()
@@ -10,103 +11,133 @@ let version = 0
 const listeners = new Set<() => void>()
 const emit = () => { version++; listeners.forEach((l) => l()) }
 
-/* ---------- Synchronisation en ligne ---------- */
+/* ---------- Compte ---------- */
 const SB_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SB_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
-export type SyncState = { status: 'off' | 'saving' | 'saved' | 'offline' | 'error'; at?: string }
-let code = ''
-let syncedAt = ''          // date (serveur) de la version enregistrée que ce téléphone connaît
-export let sync: SyncState = { status: 'off' }
+export const supabase = SB_URL && SB_KEY
+  ? createClient(SB_URL, SB_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'implicit' } })
+  : null
+
+export type SyncState = { status: 'signedout' | 'saving' | 'saved' | 'offline' | 'error'; at?: string }
+export let sync: SyncState = { status: 'signedout' }
+export let user: { id: string; email?: string } | null = null
+export let recovering = false     // arrivée par le lien « mot de passe oublié »
+let syncedAt = ''                 // date serveur de la version que ce téléphone connaît
 const setSync = (s: SyncState) => { sync = s; emit() }
+const failed = () => setSync({ status: navigator.onLine ? 'error' : 'offline', at: sync.at })
 
-const ALPHABET = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'
-const newCode = () => [...crypto.getRandomValues(new Uint8Array(24))].map((b) => ALPHABET[b % ALPHABET.length]).join('').replace(/(.{4})(?=.)/g, '$1-')
-export const normCode = (s: string) => s.toUpperCase().replace(/[^0-9A-Z]/g, '').replace(/(.{4})(?=.)/g, '$1-')
-export const syncCode = () => code
+type Payload = { cards?: Record<string, number>; favorites?: number[] }
+const snapshot = (): Payload => ({ cards: Object.fromEntries(owned), favorites: [...favs] })
 
-async function rpc<T>(fn: string, body: object): Promise<T> {
-  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
-    method: 'POST', body: JSON.stringify(body),
-    headers: { apikey: SB_KEY!, Authorization: `Bearer ${SB_KEY}`, 'Content-Type': 'application/json' },
-  })
-  if (!r.ok) throw new Error(`${fn} ${r.status}`)
-  return r.json() as Promise<T>
-}
-type Remote = { data: { cards?: Record<string, number>; favorites?: number[] }; updated_at: string } | null
-
-const snapshot = () => ({ cards: Object.fromEntries(owned), favorites: [...favs] })
-function replaceLocal(d: NonNullable<Remote>['data']) {
+function replaceLocal(d: Payload) {
   owned.clear(); favs.clear()
   for (const [id, n] of Object.entries(d.cards ?? {})) if (DB.byId.has(id) && n > 0) owned.set(id, n)
   for (const id of d.favorites ?? []) favs.add(id)
   saveLocal(); emit()
 }
+// Première connexion sur ce téléphone : on additionne ce qu'il contenait à ce qui est déjà sur le compte.
+function mergeLocal(d: Payload) {
+  for (const [id, n] of Object.entries(d.cards ?? {})) if (DB.byId.has(id) && n > (owned.get(id) ?? 0)) owned.set(id, n)
+  for (const id of d.favorites ?? []) favs.add(id)
+  saveLocal(); emit()
+}
 
 let pushT: ReturnType<typeof setTimeout> | undefined
-let pushing: Promise<void> = Promise.resolve()
-function schedulePush() {
-  if (!SB_URL || !code) return
+let queue: Promise<void> = Promise.resolve()
+function schedulePush(delay = 1200) {
+  if (!supabase || !user) return
   clearTimeout(pushT)
   setSync({ status: 'saving', at: sync.at })
-  pushT = setTimeout(() => { pushing = pushing.then(push) }, 1200)
+  pushT = setTimeout(() => { queue = queue.then(push) }, delay)
 }
 async function push() {
-  try {
-    syncedAt = await rpc<string>('save_collection', { code, payload: snapshot() })
-    await set('sync-at', syncedAt)
-    setSync({ status: 'saved', at: syncedAt })
-  } catch {
-    setSync({ status: navigator.onLine ? 'error' : 'offline', at: sync.at })
-  }
+  if (!supabase || !user) return
+  const { data, error } = await supabase.from('user_collections')
+    .upsert({ user_id: user.id, data: snapshot() }).select('updated_at').single()
+  if (error || !data) return failed()
+  syncedAt = data.updated_at; await set('sync-at:' + user.id, syncedAt)
+  setSync({ status: 'saved', at: syncedAt })
 }
 
-// Récupère la version en ligne si elle est plus récente que celle du téléphone.
+// Relit le compte : la version en ligne gagne si elle est plus récente que celle du téléphone.
 export async function pull() {
-  if (!SB_URL || !code) return
-  try {
-    const remote = await rpc<Remote>('get_collection', { code })
-    if (remote && remote.updated_at > syncedAt) {
-      replaceLocal(remote.data)
-      syncedAt = remote.updated_at; await set('sync-at', syncedAt)
-      setSync({ status: 'saved', at: syncedAt })
-    } else if (!remote) {
-      schedulePush() // premier passage : on crée la collection en ligne pour que le code existe
-    } else {
-      setSync({ status: 'saved', at: syncedAt })
-    }
-  } catch {
-    setSync({ status: navigator.onLine ? 'error' : 'offline', at: syncedAt || undefined })
+  if (!supabase || !user) return
+  const { data, error } = await supabase.from('user_collections').select('data, updated_at').eq('user_id', user.id).maybeSingle()
+  if (error) return failed()
+  const firstOnDevice = !syncedAt
+  if (!data) return schedulePush(0)                       // compte neuf : on y envoie ce que le téléphone contient
+  if (firstOnDevice) { mergeLocal(data.data); return schedulePush(0) }
+  if (data.updated_at > syncedAt) {
+    replaceLocal(data.data)
+    syncedAt = data.updated_at; await set('sync-at:' + user.id, syncedAt)
   }
+  setSync({ status: 'saved', at: syncedAt })
 }
 
-// Reprend une collection existante à partir de son code (autre téléphone, réinstallation).
-export async function restoreFromCode(input: string): Promise<'ok' | 'unknown' | 'error'> {
-  const c = normCode(input)
-  if (c.replace(/-/g, '').length < 20) return 'unknown'
-  try {
-    const remote = await rpc<Remote>('get_collection', { code: c })
-    if (!remote) return 'unknown'
-    code = c; await set('sync-code', code)
-    replaceLocal(remote.data)
-    syncedAt = remote.updated_at; await set('sync-at', syncedAt)
-    setSync({ status: 'saved', at: syncedAt })
-    return 'ok'
-  } catch { return 'error' }
+async function onUser(u: { id: string; email?: string } | null) {
+  const changedUser = u?.id !== user?.id
+  user = u
+  if (!u) { setSync({ status: 'signedout' }); return }
+  if (changedUser) syncedAt = (await get<string>('sync-at:' + u.id)) ?? ''
+  emit()
+  await pull()
+}
+
+const frMsg = (m?: string) => {
+  if (!m) return 'Une erreur est survenue. Réessaie.'
+  if (/invalid login/i.test(m)) return 'E-mail ou mot de passe incorrect.'
+  if (/already registered|already exists/i.test(m)) return 'Un compte existe déjà avec cet e-mail : connecte-toi.'
+  if (/password should be at least|at least 8/i.test(m)) return 'Le mot de passe doit faire au moins 8 caractères.'
+  if (/valid email|invalid email|unable to validate email/i.test(m)) return 'Cet e-mail ne semble pas valide.'
+  if (/rate limit|too many/i.test(m)) return 'Trop d’essais d’un coup. Attends une minute.'
+  if (/fetch|network/i.test(m)) return 'Pas de connexion. Réessaie dans un instant.'
+  return m
+}
+
+export async function signUp(email: string, password: string) {
+  if (!supabase) return 'Comptes indisponibles.'
+  const { error } = await supabase.auth.signUp({ email: email.trim(), password })
+  return error ? frMsg(error.message) : null
+}
+export async function signIn(email: string, password: string) {
+  if (!supabase) return 'Comptes indisponibles.'
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+  return error ? frMsg(error.message) : null
+}
+export async function resetPassword(email: string) {
+  if (!supabase) return 'Comptes indisponibles.'
+  const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo: location.origin + location.pathname })
+  return error ? frMsg(error.message) : null
+}
+export async function newPassword(password: string) {
+  if (!supabase) return 'Comptes indisponibles.'
+  const { error } = await supabase.auth.updateUser({ password })
+  if (!error) { recovering = false; emit() }
+  return error ? frMsg(error.message) : null
+}
+// Se déconnecter vide aussi ce téléphone : la collection reste sur le compte.
+export async function signOut() {
+  await queue
+  await supabase?.auth.signOut()
+  owned.clear(); favs.clear(); saveLocal()
+  if (user) await del('sync-at:' + user.id)
+  user = null; syncedAt = ''
+  setSync({ status: 'signedout' })
 }
 
 /* ---------- Stockage local ---------- */
 export async function loadStore() {
-  const [col, fav, c, at] = await Promise.all([
-    get<[string, number][]>('collection'), get<number[]>('favorites'), get<string>('sync-code'), get<string>('sync-at'),
-  ])
+  const [col, fav] = await Promise.all([get<[string, number][]>('collection'), get<number[]>('favorites')])
   for (const [id, n] of col ?? []) owned.set(id, n)
   for (const id of fav ?? []) favs.add(id)
-  code = c ?? newCode()
-  if (!c) await set('sync-code', code)
-  syncedAt = at ?? ''
   navigator.storage?.persist?.().catch(() => {})
   emit()
-  pull()
+  if (!supabase) return
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') { recovering = true; location.hash = '/compte' }
+    // Hors du rappel : le client interdit d'attendre une autre requête Supabase pendant celui-ci.
+    setTimeout(() => onUser(session?.user ? { id: session.user.id, email: session.user.email } : null), 0)
+  })
   document.addEventListener('visibilitychange', () => { if (!document.hidden) pull() })
   addEventListener('online', () => pull())
 }

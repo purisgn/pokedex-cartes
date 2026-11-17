@@ -7,6 +7,7 @@ import { Series, SerieView } from './views/Series'
 import { SetView } from './views/SetView'
 import { Scan } from './views/Scan'
 import { Collection } from './views/Collection'
+import { Account } from './views/Account'
 
 // Navigation par l'adresse (#/…) : le bouton retour du téléphone marche partout.
 const readRoute = () => location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent)
@@ -18,6 +19,7 @@ const TABS = [
   { path: 'series', label: 'Séries', icon: 'cards', match: ['series', 'serie', 'set'] },
   { path: 'scan', label: 'Scanner', icon: 'scan', match: ['scan'] },
   { path: 'collection', label: 'Collection', icon: 'folder', match: ['collection'] },
+  { path: 'compte', label: 'Compte', icon: 'user', match: ['compte'] },
 ] as const
 
 const scrolls = new Map<string, number>()
@@ -40,7 +42,8 @@ export function App() {
     page === 'set' ? <SetView key={arg} id={arg} /> :
     page === 'series' ? <Series /> :
     page === 'scan' ? <Scan /> :
-    page === 'collection' ? <Collection /> : <Pokedex />
+    page === 'collection' ? <Collection /> :
+    page === 'compte' ? <Account /> : <Pokedex />
   const showTabs = !['scan', 'pokemon', 'card'].includes(page)
 
   return (
