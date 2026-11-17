@@ -1,10 +1,10 @@
-import { useRef, type PointerEvent, type ReactNode } from 'react'
+import { useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { DB, eur, fdate, norm, type Card } from '../data'
 import { qty, setQty, useStore } from '../store'
 import { back, go } from '../App'
-import { tcgType, TYPES, type TypeKey } from '../types'
+import { inkOn, tcgType, TYPES, type TypeKey } from '../types'
 import { useLiveCard, type LiveCard } from '../live'
-import { CardImg, Icon, TypeChip, TypeGlyph, TypeMark } from '../ui/kit'
+import { CardImg, Icon, PokeballMark, Sprite, TypeGlyph } from '../ui/kit'
 
 // Fiche carte, même grammaire que la fiche Pokémon (maquette Junior Saraiva) :
 // disque de la couleur du type, la carte en grand à la place du sprite, puces, caractéristiques encadrées.
@@ -23,25 +23,32 @@ export function CardPage({ id }: { id: string }) {
   const price = typeof trend === 'number' ? trend : c.price
 
   return (
-    <div className="detail" style={{ ['--t' as string]: TYPES[t].color }}>
-      <div className="hero card-hero">
-        <div className="hero-disc" />
-        <TypeMark type={t} className="hero-mark" />
-        <button className="hero-arrow left" onClick={() => step(-1)} aria-label="Carte précédente"><Icon name="back" size={20} stroke={2.4} /></button>
+    <div className="mon-page" style={{ '--t': TYPES[t].color, '--ink': inkOn(TYPES[t].color) } as CSSProperties}>
+      <header className="mon-top">
+        <button className="icon-btn" onClick={back} aria-label="Retour"><Icon name="back" size={24} stroke={2.2} /></button>
+        <h1><PokeballMark size={22} /><span>{c.name}</span><small className="pixel">{c.localId}</small></h1>
+      </header>
+
+      <div className="mon-stage card-stage">
+        <div className="mon-disc"><span className="mon-disc-ball" /></div>
         <TiltCard card={c} holo={rare} />
-        <button className="hero-arrow right" onClick={() => step(1)} aria-label="Carte suivante"><Icon name="next" size={20} stroke={2.4} /></button>
-        <button className="hero-btn left" onClick={back} aria-label="Retour"><Icon name="back" size={26} stroke={2.2} /></button>
-        <span className="hero-btn right hero-no pixel">{c.localId}/{c.set.official || c.set.cards.length}</span>
+        <button className="mon-arrow left" onClick={() => step(-1)} aria-label="Carte précédente de l’extension"><Icon name="back" size={18} stroke={2.4} /></button>
+        <button className="mon-arrow right" onClick={() => step(1)} aria-label="Carte suivante de l’extension"><Icon name="next" size={18} stroke={2.4} /></button>
+      </div>
+      <div className="mon-types">
+        <span className="tpill" style={{ background: TYPES[t].color, color: inkOn(TYPES[t].color) }}>{(c.type || c.category).toLowerCase()}</span>
+        {c.rarity && <span className="tpill light">{c.rarity.toLowerCase()}</span>}
+        {c.hp ? <span className="tpill light"><span className="pixel">{c.hp}</span> PV</span> : null}
       </div>
 
-      <div className="page">
-        <h1 className="title">{c.name}</h1>
-        <p className="subtitle"><a href={'#/set/' + c.set.id}>{c.set.name}</a>{c.rarity ? ` · ${c.rarity}` : ''}</p>
-        <div className="chips">
-          {c.type ? <TypeChip type={t} /> : <span className="chip neutral">{c.category}</span>}
-          {c.hp ? <span className="chip neutral">{c.hp} PV</span> : null}
-          {mon && <a className="chip outline" href={'#/pokemon/' + mon.id}>Voir {mon.name}<Icon name="next" size={12} stroke={2.4} /></a>}
-        </div>
+      <div className="mon-body">
+        {mon && (
+          <a className="mon-link" href={'#/pokemon/' + mon.id}>
+            <Sprite id={mon.id} size={48} />
+            <span><b>{mon.name}</b><small>Voir sa fiche Pokédex</small></span>
+            <Icon name="next" size={18} stroke={2} />
+          </a>
+        )}
 
         <Moves live={live.data} loading={!live.done} />
 
@@ -60,7 +67,7 @@ export function CardPage({ id }: { id: string }) {
           </div>
           {n > 0 && price ? <span className="price-mine"><small>Mes {n}</small><b>{eur(price * n)}</b></span> : null}
         </div>
-        {live.data?.illustrator && <p className="hint">Illustration : {live.data.illustrator}</p>}
+        {live.data?.illustrator && <p className="hint">Illustration de {live.data.illustrator}</p>}
 
         <div className="buy-row">
           <div className="mini-stepper">
@@ -145,7 +152,7 @@ function Trend({ live }: { live: LiveCard | null }) {
   if (!a7 || !a30) return null
   const d = (a7 - a30) / a30
   if (Math.abs(d) < 0.01) return <span className="trend flat">Stable sur 30 jours</span>
-  return <span className={'trend ' + (d > 0 ? 'up' : 'down')}>{d > 0 ? '↗' : '↘'} {d > 0 ? '+' : ''}{Math.round(d * 100)} % sur 7 jours</span>
+  return <span className={'trend ' + (d > 0 ? 'up' : 'down')}><Icon name={d > 0 ? 'up' : 'downtrend'} size={14} stroke={2.2} />{d > 0 ? '+' : ''}{Math.round(d * 100)} % en 7 jours</span>
 }
 
 function Versions({ card }: { card: Card }) {

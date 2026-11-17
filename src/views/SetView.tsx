@@ -26,7 +26,7 @@ export function SetView({ id }: { id: string }) {
         <SetMark set={st} big />
         <h1 className="title">{st.name}</h1>
         <p className="subtitle">{fdate(st.date, true)}{st.abbr ? ` · ${st.abbr}` : ''}</p>
-        <div className="panel set-panel"><Meter label="Collection" n={n} of={of} value={value} /></div>
+        <div className="panel set-panel"><Meter n={n} of={of} value={value} /></div>
       </div>
 
       <div className="pills">

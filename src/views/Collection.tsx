@@ -1,14 +1,13 @@
 import { useDeferredValue, useState } from 'react'
 import { DB, cardImg, eur, norm, type Card, type CardSet } from '../data'
 import { ownedByDex, ownedEntries, sync, user, useStore } from '../store'
-import { tcgType, TYPES } from '../types'
-import { Header, Icon, SelectPill, Sprite, TypeMark } from '../ui/kit'
+import { Icon, PokeballMark, SelectPill, Sprite } from '../ui/kit'
 import { CardTile, Meter } from '../ui/collection'
 import { SetMark } from './Series'
 import { sheet } from './CardSheet'
 
 type Sort = 'recent' | 'value' | 'dex' | 'name'
-const SORTS: [Sort, string][] = [['recent', 'Plus récentes'], ['value', 'Valeur'], ['dex', 'N° Pokédex'], ['name', 'A – Z']]
+const SORTS: [Sort, string][] = [['recent', 'Plus récentes'], ['value', 'Plus chères'], ['dex', 'N° Pokédex'], ['name', 'A – Z']]
 const BY: Record<Sort, (a: { c: Card }, b: { c: Card }) => number> = {
   recent: (a, b) => (b.c.set.date ?? '').localeCompare(a.c.set.date ?? '') || a.c.i - b.c.i,
   value: (a, b) => (b.c.price ?? 0) - (a.c.price ?? 0),
@@ -23,25 +22,25 @@ export function Collection() {
   const [sort, setSort] = useState<Sort>('recent')
   const query = useDeferredValue(norm(q))
   const list = ownedEntries().map(([id, n]) => ({ c: DB.byId.get(id)!, n })).filter((x) => x.c)
-  const total = list.reduce((s, x) => s + x.n, 0)
-  const value = list.reduce((s, x) => s + (x.c.price ?? 0) * x.n, 0)
   const pick = (v: 'sets' | 'all') => { setView(v); sessionStorage.setItem('col-view', v) }
 
   if (!list.length) return (
     <div className="page">
-      <Header title="Collection" />
-      <SyncLine />
+      <Hero total={0} distinct={0} value={0} star={null} />
+      <Sync />
       <div className="empty-state">
         <Sprite id={129} size={96} className="ghost" />
         <p className="empty-title">Ta collection est vide</p>
         <p>Scanne tes cartes, ou ouvre une extension dans Séries et active l’ajout rapide.</p>
-        <a className="btn outline" href="#/scan">Scanner mes cartes</a>
+        <a className="btn" href="#/scan">Scanner mes cartes</a>
         {!user && <a className="link" href="#/compte">J’ai déjà un compte</a>}
       </div>
     </div>
   )
 
-  const star = list.reduce((a, b) => ((b.c.price ?? 0) > (a.c.price ?? 0) ? b : a))
+  const total = list.reduce((s, x) => s + x.n, 0)
+  const value = list.reduce((s, x) => s + (x.c.price ?? 0) * x.n, 0)
+  const star = list.reduce((a, b) => ((b.c.price ?? 0) > (a.c.price ?? 0) ? b : a)).c
   const groups = new Map<CardSet, { c: Card; n: number }[]>()
   for (const x of list) (groups.get(x.c.set) ?? groups.set(x.c.set, []).get(x.c.set)!).push(x)
   const sets = [...groups].sort((a, b) => (b[0].date ?? '').localeCompare(a[0].date ?? ''))
@@ -49,24 +48,18 @@ export function Collection() {
 
   return (
     <div className="page">
-      <Header title="Collection" />
-      <Featured card={star.c} />
+      <Hero total={total} distinct={list.length} value={value} star={star} />
+      <Sync />
 
-      <section className="panel">
-        <Meter label="Pokédex en cartes" n={ownedByDex().size} of={DB.dex.length} value={value} unit="Pokémon" />
-        <p className="panel-sub"><b>{total}</b> carte{total > 1 ? 's' : ''} · <b>{list.length}</b> différente{list.length > 1 ? 's' : ''} · <b>{sets.length}</b> extension{sets.length > 1 ? 's' : ''}</p>
-        <SyncLine inline />
-      </section>
-
-      <div className="seg wide">
-        <button className={view === 'sets' ? 'on' : ''} onClick={() => pick('sets')}>Par extension</button>
-        <button className={view === 'all' ? 'on' : ''} onClick={() => pick('all')}>Toutes mes cartes</button>
+      <div className="seg block">
+        <button className={view === 'sets' ? 'on' : ''} onClick={() => pick('sets')}>Par extension · {sets.length}</button>
+        <button className={view === 'all' ? 'on' : ''} onClick={() => pick('all')}>Toutes · {list.length}</button>
       </div>
 
       {view === 'sets' ? (
         <div className="groups">
           {sets.map(([st, items]) => {
-            const top = items.slice().sort((a, b) => (b.c.price ?? 0) - (a.c.price ?? 0)).slice(0, 3)
+            const sorted = items.slice().sort((a, b) => (b.c.price ?? 0) - (a.c.price ?? 0))
             const v = items.reduce((s, x) => s + (x.c.price ?? 0) * x.n, 0)
             return (
               <section key={st.id} className="group">
@@ -75,9 +68,8 @@ export function Collection() {
                   <span className="group-title"><b>{st.name}</b><small>{st.serie.name}</small></span>
                   <Icon name="next" size={18} stroke={2} />
                 </a>
-                <Meter label="Collection" n={items.length} of={st.official || st.cards.length} value={v} />
-                <div className="tiles">{top.map(({ c, n }) => <CardTile key={c.id} card={c} n={n} onClick={() => sheet.open(c.id)} />)}</div>
-                <a className="soft-btn" href={'#/set/' + st.id}>Voir l’extension{items.length > 3 ? ` · ${items.length} cartes` : ''}</a>
+                <Meter n={items.length} of={st.official || st.cards.length} value={v} />
+                <div className="strip">{sorted.map(({ c, n }) => <CardTile key={c.id} card={c} n={n} onClick={() => sheet.open(c.id)} />)}</div>
               </section>
             )
           })}
@@ -86,41 +78,46 @@ export function Collection() {
         <>
           <label className="field">
             <Icon name="search" size={18} stroke={1.8} />
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Chercher une carte ou une extension…" autoComplete="off" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Une carte, une extension…" autoComplete="off" />
           </label>
-          <div className="pills"><SelectPill label="Trier" value={sort} onChange={setSort} options={SORTS} /></div>
-          <div className="tiles all">{shown.map(({ c, n }) => <CardTile key={c.id} card={c} n={n} onClick={() => sheet.open(c.id)} />)}</div>
+          <div className="row-between">
+            <span className="muted">{shown.length} carte{shown.length > 1 ? 's' : ''}</span>
+            <SelectPill label="Trier" value={sort} onChange={setSort} options={SORTS} />
+          </div>
+          <div className="tiles">{shown.map(({ c, n }) => <CardTile key={c.id} card={c} n={n} onClick={() => sheet.open(c.id)} />)}</div>
         </>
       )}
     </div>
   )
 }
 
-// La carte la plus chère de la collection, mise en avant (maquette : bandeau « Charizard VSTAR »).
-function Featured({ card }: { card: Card }) {
-  const t = tcgType(card.type)
-  const img = cardImg(card, 'high')
+// En-tête rouge, même famille que l'accueil : valeur, chiffres clés, progression du Pokédex, carte la plus chère.
+function Hero({ total, distinct, value, star }: { total: number; distinct: number; value: number; star: Card | null }) {
+  const img = star && cardImg(star, 'high')
   return (
-    <button className="featured" style={{ ['--t' as string]: TYPES[t].color }} onClick={() => sheet.open(card.id)}>
-      <TypeMark type={t} className="featured-mark" />
-      <span className="featured-txt">
-        <small>Ta carte phare</small>
-        <b>{card.name}</b>
-        <span>{card.set.name} · <span className="pixel">{card.localId}</span></span>
-        {card.price ? <em>{eur(card.price)}</em> : null}
-      </span>
-      {img && <img className="featured-card" src={img} alt="" />}
-    </button>
+    <section className="hero-card">
+      <span className="hero-ball" aria-hidden="true" />
+      <p className="hero-kicker"><PokeballMark size={18} /><span>Ma collection</span></p>
+      <p className="hero-value">{eur(value)}</p>
+      <p className="hero-sub">{total} carte{total > 1 ? 's' : ''} · {distinct} différente{distinct > 1 ? 's' : ''}</p>
+      <div className="hero-progress">
+        <span className="bar on-color"><i style={{ width: `${Math.max((ownedByDex().size / DB.dex.length) * 100, ownedByDex().size ? 1.5 : 0)}%` }} /></span>
+        <span><b className="pixel">{ownedByDex().size}</b> / {DB.dex.length} Pokémon</span>
+      </div>
+      {img && <button className="hero-star" onClick={() => sheet.open(star!.id)} aria-label={`Ta carte la plus chère : ${star!.name}`}><img src={img} alt="" /></button>}
+    </section>
   )
 }
 
-function SyncLine({ inline }: { inline?: boolean }) {
+function Sync() {
   if (!user) return (
-    <a className={'syncline off' + (inline ? ' inline' : '')} href="#/compte">
-      <Icon name="cloud" size={18} stroke={1.8} /><span>Crée un compte pour ne jamais perdre ta collection</span><b>Créer</b>
+    <a className="notice" href="#/compte">
+      <Icon name="cloud" size={20} stroke={1.8} />
+      <span>Crée un compte pour ne jamais perdre ta collection.</span>
+      <Icon name="next" size={16} stroke={2.2} />
     </a>
   )
   const time = sync.at ? new Date(sync.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''
-  const label = { signedout: '', saving: 'Enregistrement…', saved: `Enregistrée sur ton compte${time ? ' · ' + time : ''}`, offline: 'Hors ligne : enregistrée au retour du réseau', error: 'Enregistrement impossible pour l’instant' }[sync.status]
-  return <a className={'syncline ' + sync.status + (inline ? ' inline' : '')} href="#/compte"><Icon name="cloud" size={16} stroke={1.8} /><span>{label}</span></a>
+  const label = { signedout: '', saving: 'Enregistrement…', saved: `Enregistrée sur ton compte${time ? ', ' + time : ''}`, offline: 'Hors ligne, enregistrée au retour du réseau', error: 'Enregistrement impossible pour l’instant' }[sync.status]
+  return <p className={'sync ' + sync.status}><Icon name="cloud" size={16} stroke={1.8} />{label}</p>
 }

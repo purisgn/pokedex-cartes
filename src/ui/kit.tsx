@@ -1,6 +1,6 @@
 // Composants partagés, tous tirés de la planche « Componentes » de Junior Saraiva.
 import { useState, type CSSProperties, type ReactNode } from 'react'
-import { TYPES, typeIcon, type TypeKey } from '../types'
+import { typeIcon, type TypeKey } from '../types'
 import { cardImg, type Card } from '../data'
 
 const SPRITE_URL = import.meta.env.BASE_URL + 'sprites.webp'
@@ -30,6 +30,8 @@ const PATHS = {
   shuffle: <><path d="M4 7h3.5c4.5 0 4.5 10 9 10H20" /><path d="M4 17h3.5c1.6 0 2.6-1.2 3.4-2.8M13.1 9.8C13.9 8.2 14.9 7 16.5 7H20" /><path d="m17.5 4.5 2.5 2.5-2.5 2.5M17.5 14.5l2.5 2.5-2.5 2.5" /></>,
   grid: <><rect x="4" y="4" width="6.5" height="6.5" rx="1.8" /><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8" /><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8" /><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8" /></>,
   down: <path d="M12 5v14m0 0-5-5m5 5 5-5" />,
+  up: <path d="M4 16l6-6 4 4 6-6M15 8h5v5" />,
+  downtrend: <path d="M4 8l6 6 4-4 6 6M15 16h5v-5" />,
   folder: <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5Z" />,
   weight: <><path d="M7 9h10l2 11H5Z" /><circle cx="12" cy="6" r="2.5" /></>,
   ruler: <path d="M12 4v16M8 4h8M8 20h8" />,
@@ -62,23 +64,6 @@ export function TypeGlyph({ type, color, size = 14 }: { type: TypeKey; color?: s
   return <span className="glyph" style={{ width: size, height: size, background: color ?? '#fff', maskImage: url, WebkitMaskImage: url }} />
 }
 
-// Puce de type : pastille colorée, rond blanc avec l'icône dans la couleur du type.
-export function TypeChip({ type, size = 'md' }: { type: TypeKey; size?: 'sm' | 'md' }) {
-  const { label, color } = TYPES[type]
-  return (
-    <span className={'chip ' + size} style={{ background: color }}>
-      <span className="chip-dot"><TypeGlyph type={type} color={color} size={size === 'sm' ? 10 : 13} /></span>
-      {label}
-    </span>
-  )
-}
-
-// Grand filigrane de l'icône de type (en-têtes colorés).
-export function TypeMark({ type, className }: { type: TypeKey; className?: string }) {
-  const url = `url("${typeIcon(type)}")`
-  return <span className={'type-mark ' + (className ?? '')} style={{ maskImage: url, WebkitMaskImage: url }} aria-hidden="true" />
-}
-
 // Sprite fixe, tiré de la planche embarquée (rapide, hors ligne).
 export function Sprite({ id, size = 96, style, className }: { id: number; size?: number; style?: CSSProperties; className?: string }) {
   const i = id - 1
@@ -106,16 +91,6 @@ export function CardImg({ card, q = 'low', className }: { card: Card; q?: 'low' 
   return src
     ? <img className={'cimg ' + (className ?? '')} src={src} alt={card.name} loading="lazy" decoding="async" />
     : <span className={'cimg ph ' + (className ?? '')}>{card.name}</span>
-}
-
-// Bouton cœur rond (maquette : cercle blanc fin en haut à droite des cartes).
-export function HeartButton({ on, onClick, light }: { on: boolean; onClick: () => void; light?: boolean }) {
-  return (
-    <button className={'heart' + (on ? ' on' : '') + (light ? ' light' : '')} aria-pressed={on} aria-label={on ? 'Retirer des favoris' : 'Ajouter aux favoris'}
-      onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick() }}>
-      <Icon name="heart" size={light ? 26 : 14} stroke={light ? 2 : 2.2} />
-    </button>
-  )
 }
 
 // Statistique encadrée (maquette : petit libellé en capitales avec icône, valeur dans un cadre).
