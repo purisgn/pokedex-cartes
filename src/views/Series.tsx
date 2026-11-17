@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { DB, fdate, latestSets, type CardSet } from '../data'
+import { DB, fdate, type CardSet } from '../data'
 import { qty, useStore } from '../store'
-import { CardImg, Icon } from '../ui/kit'
+import { CardImg, Icon, TopBar } from '../ui/kit'
 
 export const progress = (st: CardSet) => {
   let n = 0
@@ -19,42 +19,24 @@ export function SetMark({ set, big }: { set: CardSet; big?: boolean }) {
 
 export function Series() {
   useStore()
-  const [open, setOpen] = useState<string | null>(() => sessionStorage.getItem('serie-open') ?? DB.series[0]?.id ?? null)
+  const [open, setOpen] = useState<string>(() => sessionStorage.getItem('serie-open') ?? DB.series[0]?.id ?? '')
   const toggle = (id: string) => { const v = open === id ? '' : id; setOpen(v); sessionStorage.setItem('serie-open', v) }
 
   return (
     <div className="page">
-      <header className="page-head">
-        <h1>Séries</h1>
-        <p className="count">{DB.sets.size} extensions françaises · à jour au {fdate(DB.updated, true)}</p>
-      </header>
-
-      <h2 className="h2">Dernières sorties</h2>
-      <div className="rail">
-        {latestSets(8).map((st) => {
-          const { n, of } = progress(st)
-          return (
-            <a key={st.id} href={'#/set/' + st.id} className="release">
-              <span className="release-mark"><SetMark set={st} /></span>
-              <span className="release-name">{st.name}</span>
-              <span className="release-meta">{fdate(st.date)} · {n}/{of}</span>
-            </a>
-          )
-        })}
-      </div>
-
-      <h2 className="h2">Toutes les séries</h2>
+      <TopBar title="Séries" />
+      <p className="lead">{DB.sets.size} extensions françaises, à jour au {fdate(DB.updated, true)}.</p>
       <ul className="series">
         {DB.series.map((s) => {
           const isOpen = open === s.id
           const n = s.sets.reduce((a, st) => a + progress(st).n, 0)
           const years = [...new Set(s.sets.map((st) => st.date?.slice(0, 4)).filter(Boolean))].sort()
           return (
-            <li key={s.id} className={isOpen ? 'open' : ''}>
+            <li key={s.id} className={'serie' + (isOpen ? ' open' : '')}>
               <button className="serie-head" onClick={() => toggle(s.id)} aria-expanded={isOpen}>
                 <span className="serie-name">{s.name}</span>
-                <span className="serie-meta">{years.length ? (years[0] === years.at(-1) ? years[0] : `${years[0]}–${years.at(-1)}`) : ''}{n ? ` · ${n}` : ''}</span>
-                <Icon name="chevron" size={20} />
+                <span className="serie-meta">{years.length ? (years[0] === years.at(-1) ? years[0] : `${years[0]}–${years.at(-1)}`) : ''}{n ? ` · ${n} cartes` : ''}</span>
+                <span className="serie-chev"><Icon name="chevron" size={16} stroke={2.2} /></span>
               </button>
               {isOpen && (
                 <div className="sets">

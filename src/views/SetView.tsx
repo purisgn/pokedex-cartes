@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DB, eur, fdate } from '../data'
 import { addCard, qty, useStore } from '../store'
 import { back } from '../App'
-import { CardImg, Icon } from '../ui/kit'
+import { CardImg, TopBar } from '../ui/kit'
 import { sheet } from './CardSheet'
 import { progress, SetMark } from './Series'
 
@@ -18,11 +18,7 @@ export function SetView({ id }: { id: string }) {
 
   return (
     <div className="page">
-      <header className="bar-head">
-        <button className="icon-btn" onClick={back} aria-label="Retour"><Icon name="back" size={26} stroke={2} /></button>
-        <span className="bar-title">{st.serie.name}</span>
-        <span className="icon-btn" />
-      </header>
+      <TopBar title={st.serie.name} onBack={back} />
 
       <div className="set-hero">
         <SetMark set={st} big />
@@ -33,9 +29,9 @@ export function SetView({ id }: { id: string }) {
       </div>
 
       <div className="toolbar">
-        <div className="seg">
+        <div className="tabs small" role="tablist">
           {(['all', 'own', 'miss'] as const).map((f) => (
-            <button key={f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{{ all: 'Toutes', own: 'Possédées', miss: 'Manquantes' }[f]}</button>
+            <button key={f} role="tab" aria-selected={filter === f} className={filter === f ? 'on' : ''} onClick={() => setFilter(f)}>{{ all: 'Toutes', own: 'Possédées', miss: 'Manquantes' }[f]}</button>
           ))}
         </div>
         <label className="switch">

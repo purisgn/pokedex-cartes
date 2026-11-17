@@ -1,7 +1,7 @@
 import { useDeferredValue, useState } from 'react'
-import { DB, eur, norm } from '../data'
+import { DB, eur, fdate, norm } from '../data'
 import { importCollection, ownedByDex, ownedEntries, useStore } from '../store'
-import { CardImg, Icon } from '../ui/kit'
+import { CardImg, Icon, TopBar } from '../ui/kit'
 import { sheet } from './CardSheet'
 
 const SORTS = { recent: 'Plus récentes', dex: 'N° Pokédex', name: 'A–Z', value: 'Valeur' } as const
@@ -26,10 +26,7 @@ export function Collection() {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <h1>Collection</h1>
-        <p className="count">Prix Cardmarket du jour de mise à jour</p>
-      </header>
+      <TopBar title="Ma collection" />
 
       <dl className="stats">
         <div><dt>Cartes</dt><dd>{total}</dd></div>
@@ -37,21 +34,22 @@ export function Collection() {
         <div><dt>Pokémon</dt><dd>{ownedByDex().size}<small> / {DB.dex.length}</small></dd></div>
         <div><dt>Valeur</dt><dd>{eur(value)}</dd></div>
       </dl>
+      <p className="note">Valeur selon les prix Cardmarket au {fdate(DB.updated, true)}.</p>
 
       {list.length ? (
         <>
-          <label className="field">
-            <Icon name="search" size={20} />
+          <label className="search">
+            <Icon name="search" size={16} stroke={2} />
             <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Carte ou extension" autoComplete="off" />
           </label>
-          <div className="pills">
-            <label className="pill">
-              <span>{SORTS[sort]}</span><Icon name="chevron" size={16} stroke={2.2} />
+          <div className="filters">
+            <label className="fpill">
+              <span>{SORTS[sort]}</span><Icon name="chevron" size={14} stroke={2.2} />
               <select value={sort} onChange={(e) => setSort(e.target.value as keyof typeof SORTS)} aria-label="Trier">
                 {Object.entries(SORTS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             </label>
-            <button className="pill light" onClick={() => setBackup(!backup)}>Sauvegarde</button>
+            <button className="fpill light" onClick={() => setBackup(!backup)}>Sauvegarde</button>
           </div>
           {backup && <Backup />}
           <div className="grid">
