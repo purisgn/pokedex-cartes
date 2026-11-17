@@ -4,7 +4,7 @@ import { GENS, STRONG, TYPES, inkOn, vivid, type TypeKey } from '../types'
 import { isFav, ownedByDex, qty, toggleFav, useStore } from '../store'
 import { useSpecies, type Evo, type SpeciesInfo } from '../species'
 import { back, go } from '../App'
-import { AnimSprite, CardImg, FolderTabs, Icon, PokeballMark, Sprite, TypeGlyph } from '../ui/kit'
+import { AnimSprite, CardImg, FolderTabs, Icon, usePageColor, PokeballMark, Sprite, TypeGlyph } from '../ui/kit'
 import { sheet } from './CardSheet'
 
 type Tab = 'about' | 'stats' | 'evo' | 'cards'
@@ -18,8 +18,9 @@ export function Pokemon({ id }: { id: number }) {
   const all = (DB.byDex.get(id) ?? []).slice().sort((a, b) => +!!qty(b.id) - +!!qty(a.id) || (b.set.date ?? '').localeCompare(a.set.date ?? ''))
   const owned = all.filter((c) => qty(c.id))
   const [tab, setTab] = useState<Tab>('about')
+  const color = p ? vivid(TYPES[p.types[0]].color) : '#FFFFFF'
+  usePageColor(color)
   if (!p) return <p className="empty">Pokémon introuvable.</p>
-  const t = p.types[0], color = vivid(TYPES[t].color)
   const nav = (d: number) => go('pokemon/' + (((id - 1 + d + DB.dex.length) % DB.dex.length) + 1))
   const random = () => {
     const mine = [...ownedByDex().keys()]

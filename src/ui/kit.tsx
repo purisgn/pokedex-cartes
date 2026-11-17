@@ -1,5 +1,5 @@
 // Composants partagés, tous tirés de la planche « Componentes » de Junior Saraiva.
-import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ENERGY, energyIcon, energyOf, inkOn, typeIcon, type TypeKey } from '../types'
 import { cardImg, type Card } from '../data'
 
@@ -169,4 +169,23 @@ export function FolderTabs<K extends string>({ tabs, value, onChange }: { tabs: 
       <div className="segtabs-on" aria-hidden="true" style={{ clipPath: clip }}>{row(true)}</div>
     </div>
   )
+}
+
+// Habillage du téléphone pour une fiche en couleur : la barre d'état (heure, batterie) prend la couleur
+// de la fiche, et le rebond du défilement montre la couleur du haut en haut, le blanc du panneau en bas.
+export function usePageColor(top: string, bottom = '#FFFFFF') {
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    const before = meta?.getAttribute('content') ?? '#FFFFFF'
+    const root = document.documentElement
+    const paint = () => {
+      const atTop = scrollY < (document.body.scrollHeight - innerHeight) / 2
+      const c = atTop ? top : bottom
+      root.style.backgroundColor = c
+      meta?.setAttribute('content', atTop ? top : scrollY > 40 ? bottom : top)
+    }
+    paint()
+    addEventListener('scroll', paint, { passive: true })
+    return () => { removeEventListener('scroll', paint); root.style.backgroundColor = ''; meta?.setAttribute('content', before) }
+  }, [top, bottom])
 }

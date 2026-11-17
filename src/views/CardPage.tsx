@@ -4,7 +4,7 @@ import { qty, setQty, useStore } from '../store'
 import { back, go } from '../App'
 import { ENERGY, energyOf, inkOn, vivid } from '../types'
 import { useLiveCard, type LiveCard } from '../live'
-import { CardImg, Energy, FolderTabs, Icon, PokeballMark, Sprite } from '../ui/kit'
+import { CardImg, Energy, FolderTabs, Icon, usePageColor, PokeballMark, Sprite } from '../ui/kit'
 
 type Tab = 'infos' | 'moves' | 'price' | 'versions'
 
@@ -16,9 +16,10 @@ export function CardPage({ id }: { id: string }) {
   const c = DB.byId.get(id)
   const live = useLiveCard(id)
   const [tab, setTab] = useState<Tab>('infos')
+  const e = energyOf(c?.type || live.data?.types?.[0])
+  const color = c ? vivid(cardTint(c) ?? ENERGY[e].color) : '#FFFFFF'
+  usePageColor(color)
   if (!c) return <p className="empty">Carte introuvable.</p>
-  const e = energyOf(c.type || live.data?.types?.[0])
-  const color = vivid(cardTint(c) ?? ENERGY[e].color)
   const n = qty(c.id)
   const i = c.set.cards.indexOf(c)
   const step = (d: number) => i >= 0 && go('card/' + encodeURIComponent(c.set.cards[(i + d + c.set.cards.length) % c.set.cards.length].id))
