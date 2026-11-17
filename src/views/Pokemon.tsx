@@ -33,7 +33,7 @@ export function Pokemon({ id }: { id: number }) {
     <div className="mon-page" style={style}>
       <header className="mon-top">
         <button className="icon-btn" onClick={back} aria-label="Retour"><Icon name="back" size={24} stroke={2.2} /></button>
-        <h1><PokeballMark size={22} /><span>{p.name}</span><small className="pixel">#{String(id).padStart(3, '0')}</small></h1>
+        <h1 className={p.name.length > 14 ? 'long' : ''}><PokeballMark size={22} /><span>{p.name}</span><small className="pixel">#{String(id).padStart(3, '0')}</small></h1>
       </header>
 
       <div className="mon-stage">

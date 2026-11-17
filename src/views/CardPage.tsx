@@ -30,7 +30,7 @@ export function CardPage({ id }: { id: string }) {
     <div className="mon-page card-v" style={{ '--t': color, '--ink': inkOn(color) } as CSSProperties}>
       <header className="mon-top">
         <button className="icon-btn" onClick={back} aria-label="Retour"><Icon name="back" size={24} stroke={2.2} /></button>
-        <h1><PokeballMark size={22} /><span>{c.name}</span><small className="pixel">#{c.localId}</small></h1>
+        <h1 className={c.name.length > 14 ? 'long' : ''}><PokeballMark size={22} /><span>{c.name}</span><small className="pixel">#{c.localId}</small></h1>
       </header>
 
       <div className="mon-stage card-stage">

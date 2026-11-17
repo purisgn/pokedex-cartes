@@ -61,8 +61,12 @@ export async function loadData() {
     const hit = byName.find(([k]) => n.includes(k))
     return hit ? [hit[1]] : []
   }
-  raw.cards.forEach(([id, localId, name, category, rarity, type, dexId, price, img, hp, setId], i) => {
+  // Quelques noms français de la base gardent le type en anglais (« Énergie Grass ») : on les traduit.
+  const EN: Record<string, string> = { Grass: 'Plante', Fire: 'Feu', Water: 'Eau', Lightning: 'Électrique', Psychic: 'Psy', Fighting: 'Combat', Darkness: 'Obscurité', Metal: 'Métal', Fairy: 'Fée', Dragon: 'Dragon', Colorless: 'Incolore' }
+  const frName = (n: string) => n.replace(/\b(Grass|Fire|Water|Lightning|Psychic|Fighting|Darkness|Metal|Fairy|Colorless)\b/g, (w) => EN[w])
+  raw.cards.forEach(([id, localId, rawName, category, rarity, type, dexId, price, img, hp, setId], i) => {
     const set = DB.sets.get(setId)!
+    const name = category === 'Pokémon' ? rawName : frName(rawName)
     const card: Card = {
       i, id, localId, name, category, rarity, type, price, hp, set, hasImg: img === 1,
       dexId: dexId.length || category !== 'Pokémon' ? dexId : guess(name),
