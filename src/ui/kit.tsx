@@ -141,32 +141,26 @@ export function Header({ title, onBack, right }: { title: string; onBack?: () =>
   )
 }
 
-// Onglets collés en une seule barre arrondie (maquette UI Study). Une copie « active » de la barre est
-// découpée sur l'onglet choisi : la couleur glisse d'un onglet à l'autre, sans fondu entre deux teintes.
+// Onglets des fiches, dans le style du sélecteur de l'accueil : un rail gris clair et une pastille blanche
+// en relief sous l'onglet choisi, qui glisse d'un onglet à l'autre.
 export function FolderTabs<K extends string>({ tabs, value, onChange }: { tabs: readonly (readonly [K, string])[]; value: K; onChange: (k: K) => void }) {
   const box = useRef<HTMLDivElement>(null)
-  const [clip, setClip] = useState<string>()
+  const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null)
   const i = Math.max(0, tabs.findIndex(([k]) => k === value))
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
-    const measure = () => {
-      const b = el.querySelectorAll<HTMLElement>('.segtabs-base button')[i]
-      if (!b) return
-      const W = el.offsetWidth, l = b.offsetLeft, r = W - l - b.offsetWidth
-      setClip(`inset(0 ${(r / W) * 100}% 0 ${(l / W) * 100}%)`)
-    }
+    const measure = () => { const b = el.querySelectorAll('button')[i]; if (b) setThumb({ x: b.offsetLeft, w: b.offsetWidth }) }
     measure()
     const ro = new ResizeObserver(measure); ro.observe(el)
     return () => ro.disconnect()
   }, [i, tabs.length])
-  const row = (active: boolean) => tabs.map(([k, l]) => (
-    <button key={k} role={active ? undefined : 'tab'} aria-selected={active ? undefined : k === value} tabIndex={active ? -1 : 0} onClick={() => onChange(k)}>{l}</button>
-  ))
   return (
-    <div className="segtabs" ref={box}>
-      <div className="segtabs-base" role="tablist">{row(false)}</div>
-      <div className="segtabs-on" aria-hidden="true" style={{ clipPath: clip }}>{row(true)}</div>
+    <div className="seg block segtabs" ref={box} role="tablist">
+      {thumb && <span className="seg-thumb" style={{ width: thumb.w, transform: `translateX(${thumb.x}px)` }} />}
+      {tabs.map(([k, l]) => (
+        <button key={k} role="tab" aria-selected={k === value} className={k === value ? 'on' : ''} onClick={() => onChange(k)}>{l}</button>
+      ))}
     </div>
   )
 }

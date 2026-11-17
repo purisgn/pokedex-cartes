@@ -606,16 +606,9 @@ main.with-tabs { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) }
 .card-stage .mon-arrow { top: 50%; bottom: auto; translate: 0 -50% }
 .type-ico { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; flex: none }
 
-/* Onglets collés (maquette UI Study) — la sélection glisse */
+/* Fiches : courbes de mouvement communes */
 :root { --ease-out: cubic-bezier(.23, 1, .32, 1); --ease-in-out: cubic-bezier(.77, 0, .175, 1) }
 .mon-body { margin-top: 18px; background: var(--bg) }
-.mon-body > .segtabs { margin: 18px auto 0; width: calc(100% - var(--gl) - var(--gr)); max-width: 520px }
-.segtabs { position: relative; border-radius: 999px; overflow: hidden; transition: transform .16s var(--ease-out) }
-.segtabs-base, .segtabs-on { display: flex; gap: 2px }
-.segtabs-on { position: absolute; inset: 0; pointer-events: none; transition: clip-path .32s var(--ease-in-out) }
-.segtabs button { flex: 1 1 0; min-width: 0; height: 44px; padding: 0 6px; font-size: var(--fs-md); font-weight: 500; white-space: nowrap }
-.segtabs-base button { background: color-mix(in oklab, var(--t) 16%, var(--bg)); color: var(--text) }
-.segtabs-on button { background: var(--t); color: var(--ink); font-weight: 600 }
 .mon-panel { padding-top: 0 }
 
 /* Changement d'onglet : le contenu arrive en fondu, à peine flouté */
@@ -641,12 +634,9 @@ main.with-tabs { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) }
 .mon-arrow:active { transform: scale(.92) }
 .mon-bar button:active, .mon-bar a:active { transform: scale(.9) }
 .card-bar .card-bar-add:active { transform: scale(.9) }
-.segtabs button:active { transform: none }
-.segtabs:active { transform: scale(.985) }
 .mon-arrow { transition: transform .16s var(--ease-out), background-color .2s }
 @media (prefers-reduced-motion: reduce) {
   .tab-pane, .mon-top, .mon-stage > *, .mon-types, .mon-body > .segtabs, .mon-bar, .stat-track i { animation: none }
-  .segtabs-on { transition: none }
   .tab-pane { animation: fade-only .2s ease both }
   @keyframes fade-only { from { opacity: 0 } }
 }
@@ -662,5 +652,17 @@ html, body { overflow-x: clip; max-width: 100% }
 .mon-top h1 small { flex: none }
 .mon-top h1.long { font-size: var(--fs-lg) }
 /* Barre d'onglets d'un seul tenant, sans traits */
-.segtabs-base, .segtabs-on { gap: 0 }
 .mon-stage { width: 100%; box-sizing: border-box }
+
+/* Onglets des fiches = sélecteur de l'accueil, avec pastille glissante */
+.mon-body > .segtabs { margin: 20px auto 0; width: calc(100% - var(--gl) - var(--gr)); max-width: 520px; display: flex }
+.segtabs { position: relative; overflow: visible; border-radius: 999px; padding: 3px; background: var(--bg-muted); isolation: isolate }
+.segtabs button { position: relative; z-index: 1; flex: 1 1 0; min-width: 0; height: 38px; padding: 0 6px; border-radius: 999px; background: none; font-size: var(--fs-sm); font-weight: 500; color: var(--text-3); white-space: nowrap; transition: color .25s var(--ease-out) }
+.segtabs button.on { background: none; box-shadow: none; color: var(--text) }
+.seg-thumb { position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 0; border-radius: 999px; background: var(--bg); box-shadow: 0 1px 2px rgb(21 22 26 / .08), 0 2px 8px rgb(21 22 26 / .06); transition: transform .34s var(--ease-out), width .34s var(--ease-out) }
+.segtabs:active { transform: none }
+@media (prefers-reduced-motion: reduce) { .seg-thumb { transition: none } }
+
+/* Pas de zoom au pincement ni au double-tap : l'app se tient comme une app native */
+html { touch-action: pan-x pan-y }
+input, select, textarea { font-size: 16px }

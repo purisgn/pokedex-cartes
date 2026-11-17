@@ -5,6 +5,9 @@ import { App } from './App'
 import { loadData } from './data'
 import { loadStore, supabase } from './store'
 
+// Safari ignore parfois user-scalable : on refuse aussi ses gestes de zoom.
+for (const ev of ['gesturestart', 'gesturechange']) document.addEventListener(ev, (e) => e.preventDefault(), { passive: false })
+
 const root = createRoot(document.getElementById('root')!)
 
 // Retour d'un lien envoyé par e-mail (mot de passe oublié) : le jeton arrive dans l'adresse, avant notre navigation.

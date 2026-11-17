@@ -51,7 +51,7 @@ const PLAZA = { x0: T(40), y0: T(53), x1: T(56), y1: T(67) }
 const CONCRETE = { x0: T(70), y0: T(52), x1: T(91), y1: T(68) }
 const poolField = (p: Pool, x: number, y: number, seed: number) => ((x - p.x) / p.rx) ** 2 + ((y - p.y) / p.ry) ** 2 + (fbm(x / 40, y / 40, seed) - 0.5) * 0.7
 
-export type Obj = { x: number; y: number; s: A.Sprite; glow?: string }
+export type Obj = { x: number; y: number; s: A.Sprite; frames?: A.Sprite[] }
 export type World = {
   terrain: HTMLCanvasElement
   region: Uint8Array      // région de chaque case
@@ -60,6 +60,8 @@ export type World = {
   water: { x: number; y: number }[]   // reflets animés
   lava: { x: number; y: number }[]
   lights: { x: number; y: number; r: number; c: string }[]
+  cables: number[][]                  // segments de câbles entre pylônes
+  vents: { x: number; y: number }[]   // fumerolles
 }
 
 // Région d'un point : grille 3×3 aux frontières ondulées et tramées.
@@ -70,16 +72,25 @@ export function regionAt(x: number, y: number) {
   return row * 3 + col
 }
 // Distance aux routes : un axe est-ouest et trois axes nord-sud, légèrement sinueux.
+export const roadY = (x: number) => T(36.5) + (noise(x / 160, 0.5, 21) - 0.5) * 50
+export const roadX = (cx: number, y: number) => T(cx) + (noise(0.5, y / 160, 23 + cx) - 0.5) * 50
+let horiz = false   // orientation de la route la plus proche (pour les planches des ponts)
 function roadDist(x: number, y: number) {
   let d = 1e9
-  const hy = T(36.5) + (noise(x / 160, 0.5, 21) - 0.5) * 50
-  if (x > T(5) && x < T(91)) d = Math.abs(y - hy)
+  horiz = false
+  if (x > T(5) && x < T(91)) { d = Math.abs(y - roadY(x)); horiz = true }
   for (const cx of [16.5, 48.5, 80.5]) {
-    const vx = T(cx) + (noise(0.5, y / 160, 23 + cx) - 0.5) * 50
-    if (y > T(6) && y < T(66)) d = Math.min(d, Math.abs(x - vx))
+    if (y > T(cx === 80.5 ? 15 : 6) && y < T(66)) { const dv = Math.abs(x - roadX(cx, y)); if (dv < d) { d = dv; horiz = false } }
   }
   return d
 }
+const segDist = (x: number, y: number, a: number[], b: number[]) => {
+  const dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / (dx * dx + dy * dy)))
+  return Math.hypot(x - a[0] - t * dx, y - a[1] - t * dy)
+}
+const RIVER = [[85, 10.5], [83, 13], [80.5, 14.5], [78, 16.5], [75.5, 18.3]].map(([x, y]) => [T(x), T(y)])
+// Plateaux de la montagne : dessus clair, falaise striée au sud.
+const plateau = (x: number, y: number) => x > T(33) && x < T(63) && y > T(1) && y < T(31) && regionAt(x, y) === 1 && fbm(x / 80, y / 80, 99) > 0.55
 
 export function buildWorld(): World {
   const W = MW * TS, H = MH * TS
@@ -103,13 +114,21 @@ export function buildWorld(): World {
     const plaza = x > PLAZA.x0 + (noise(y / 12, 1, 70) - 0.5) * 18 && x < PLAZA.x1 - (noise(y / 12, 2, 70) - 0.5) * 18 && y > PLAZA.y0 + (noise(x / 12, 3, 70) - 0.5) * 18 && y < PLAZA.y1 - (noise(x / 12, 4, 70) - 0.5) * 18
     const conc = x > CONCRETE.x0 && x < CONCRETE.x1 && y > CONCRETE.y0 && y < CONCRETE.y1
     const rd = roadDist(x, y), roadW = 11 + (noise(x / 14, y / 14, 80) - 0.5) * 5
-    if (lake < 1) {
+    const river = reg === 2 && x > T(73) && y < T(20) ? Math.min(...RIVER.slice(1).map((b, k) => segDist(x, y, RIVER[k], b))) - (noise(x / 10, y / 10, 81) - 0.5) * 3 : 99
+    const plat = reg === 1 && plateau(x, y), cliff = plat && !plateau(x, y + 9)
+    if (lake < 1 && rd < roadW - 1) {
+      kind[i] = 7
+      const along = horiz ? x : y, across = rd
+      c = across > roadW - 3 ? '#4A3018' : along % 4 === 0 ? '#6E4A2A' : (Math.floor(along / 4) % 3 === 0 ? '#B98450' : '#A8743E')
+    } else if (lake < 1) {
       kind[i] = 2
       const depth = lake < 0.55 ? WATER.deep : WATER.base
       c = lake > 0.9 ? WATER.edge : ((x + Math.floor(y / 3) * 7) % 23 === 0 && y % 3 === 0 ? WATER.light : depth)
       if (hash(x, y, 2) < 0.004 && lake < 0.85) water.push({ x, y })
     } else if (lake < 1.16) c = lake < 1.04 ? WATER.sand2 : tex > 0.6 ? WATER.sand2 : WATER.sand
     else if (murk < 1) { kind[i] = 2; c = murk > 0.86 ? MURK.edge : hash(x >> 2, y >> 1, 4) < 0.05 ? MURK.light : MURK.base }
+    else if (river < 4) { kind[i] = 3; c = river < 1.5 ? LAVA.light : LAVA.base; if (hash(x, y, 7) < 0.02) lava.push({ x, y }) }
+    else if (river < 6) c = LAVA.crust
     else if (lav < 1) { kind[i] = 3; c = lav > 0.82 ? LAVA.edge : fbm(x / 5, y / 5, 8) + b * 0.2 > 0.62 ? LAVA.light : LAVA.base; if (hash(x, y, 6) < 0.01) lava.push({ x, y }) }
     else if (lav < 1.25) c = LAVA.crust
     else if (ice < 1) { kind[i] = 4; c = ice > 0.88 ? ICE.edge : (Math.abs(noise(x / 7, y / 7, 12) - 0.5) < 0.025 ? ICE.edge : tex > 0.62 ? ICE.light : ICE.base) }
@@ -127,9 +146,13 @@ export function buildWorld(): World {
       kind[i] = 1
       const p = PATH[reg]
       c = rd > roadW - 1.5 ? p[2] : hash(x, y, 16) < 0.03 ? p[2] : tex > 0.62 ? p[0] : p[1]
+    } else if (cliff) {
+      kind[i] = 8
+      const yy = y % 9
+      c = yy === 8 ? '#3E3020' : (x + Math.floor(y / 3)) % 5 === 0 ? '#7E6340' : yy < 2 ? '#A0835A' : '#8E7350'
     } else {
-      const p = GROUND[reg]
-      c = rd < roadW + 1.5 ? p[3] : tex > 0.66 ? p[0] : tex < 0.36 ? p[2] : p[1]
+      const p = GROUND[reg], t2 = tex + (fbm(x / 70, y / 70, 5) - 0.5) * 0.35 + (plat ? 0.18 : 0)
+      c = rd < roadW + 1.5 ? p[3] : t2 > 0.66 ? p[0] : t2 < 0.36 ? p[2] : p[1]
     }
     const [R, G, B] = rgb(c)
     data[i * 4] = R; data[i * 4 + 1] = G; data[i * 4 + 2] = B; data[i * 4 + 3] = 255
@@ -140,7 +163,7 @@ export function buildWorld(): World {
   for (let ty = 0; ty < MH; ty++) for (let tx = 0; tx < MW; tx++) {
     const cx = tx * TS + 8, cy = ty * TS + 8, k = kind[cy * W + cx]
     region[ty * MW + tx] = regionAt(cx, cy)
-    walk[ty * MW + tx] = k === 2 ? 2 : k === 3 ? 0 : k === 4 ? 3 : 1
+    walk[ty * MW + tx] = k === 2 ? 2 : k === 3 || k === 8 ? 0 : k === 4 ? 3 : 1
   }
 
   // Petits détails au sol : touffes, fleurs, cailloux, flocons.
@@ -191,9 +214,10 @@ export function buildWorld(): World {
   // Montagne
   scatter(1, 14, () => A.spire(ROCK), { minDist: 2.5 }); scatter(1, 34, () => A.rock(ROCK, 10 + Math.floor(r() * 8), 7 + Math.floor(r() * 5)), { minDist: 1.5 }); scatter(1, 8, () => A.pine(PINE))
   // Volcan
-  place(88, 9, A.cone(), 5); for (let k = -2; k <= 2; k++) for (let j = 1; j <= 2; j++) walk[(9 - j) * MW + 88 + k] = 0
-  lights.push({ x: 88 * TS + 8, y: 6 * TS, r: 60, c: '255,120,40' })
-  scatter(2, 26, () => A.rock(ASH, 10 + Math.floor(r() * 8), 7 + Math.floor(r() * 4)), { minDist: 1.8 }); scatter(2, 5, () => A.deadTree())
+  place(85, 9, A.cone(), 7); for (let k = -4; k <= 4; k++) for (let j = 1; j <= 4; j++) walk[(9 - j) * MW + 85 + k] = 0
+  lights.push({ x: 85 * TS + 8, y: 6 * TS, r: 70, c: '255,120,40' }, { x: T(79), y: T(15), r: 50, c: '255,110,30' })
+  scatter(2, 8, A.charred, { minDist: 2.5 })
+  scatter(2, 26, () => A.rock(ASH, 10 + Math.floor(r() * 8), 7 + Math.floor(r() * 4)), { minDist: 1.8 })
   // Forêt : dense, avec des clairières.
   for (let ty = 25; ty < 47; ty++) for (let tx = 1; tx < 31; tx++) {
     if (region[ty * MW + tx] !== 3 || !free(tx, ty) || roadDist(tx * TS + 8, ty * TS + 8) < 24) continue
@@ -213,11 +237,42 @@ export function buildWorld(): World {
   // Centrale
   place(84, 56, A.building(), 4)
   lights.push({ x: 84 * TS, y: 55 * TS, r: 40, c: '140,200,255' })
-  for (const [tx, ty] of [[73, 55], [73, 63], [89, 63], [66, 58], [66, 66]]) if (walk[ty * MW + tx] !== 0) place(tx, ty, A.pylon())
+  for (const [tx, ty] of [[67, 50], [72, 50], [77, 50], [82, 50], [87, 50]]) if (walk[ty * MW + tx] !== 0) place(tx, ty, A.pylon())
+  if (walk[60 * MW + 74] !== 0) place(74, 58, A.building(), 4)
   for (let k = 0; k < 6; k++) { const tx = 76 + (k % 3) * 3, ty = 61 + Math.floor(k / 3) * 3; if (walk[ty * MW + tx] !== 0) place(tx, ty, A.solar(), 2) }
-  scatter(8, 8, A.crate, { minDist: 1.5 })
+  scatter(8, 14, A.crate, { minDist: 1.5 }); scatter(8, 6, () => A.rock(['#C9CED4', '#A3A9B1', '#7C8692', '#3E444C'], 12, 8), { minDist: 2 })
   // Bords du monde : une lisière d'arbres.
   for (let tx = 0; tx < MW; tx += 2) for (const ty of [0, MH - 1]) { const reg = region[ty * MW + tx]; objects.push({ x: tx * TS + 8, y: ty * TS + (ty ? 14 : 10), s: reg === 0 ? A.pine(PINE, true) : reg === 2 ? A.rock(ASH) : reg === 1 ? A.spire(ROCK) : A.tree(DARKLEAF, tx) }); walk[ty * MW + tx] = 0; walk[ty * MW + tx + 1] = 0 }
   for (let ty = 0; ty < MH; ty += 2) for (const tx of [0, MW - 1]) { const reg = region[ty * MW + tx]; objects.push({ x: tx * TS + 8, y: ty * TS + 12, s: reg === 0 ? A.pine(PINE, true) : reg === 2 ? A.rock(ASH) : reg === 1 ? A.spire(ROCK) : A.tree(DARKLEAF, ty) }); walk[ty * MW + tx] = 0; walk[(ty + 1) * MW + tx] = 0 }
-  return { terrain, region, walk, objects, water, lava, lights }
+  // ——— Enrichissements ———
+  // Lampadaires le long des routes (allumés la nuit).
+  const lampAt = (tx: number, ty: number) => { if (free(tx, ty) && !objects.some((o) => Math.abs(o.x - tx * TS - 8) < 20 && Math.abs(o.y - ty * TS - 12) < 20)) { place(tx, ty, A.lamp()); lights.push({ x: tx * TS + 8, y: ty * TS - 16, r: 34, c: '255,220,140' }) } }
+  for (let tx = 8; tx < 90; tx += 9) lampAt(tx, Math.round(roadY(tx * TS) / TS + 1.4))
+  for (const cx of [16.5, 48.5, 80.5]) for (let ty = cx === 80.5 ? 20 : 10; ty < 64; ty += 9) lampAt(Math.round(roadX(cx, ty * TS) / TS + 1.4), ty)
+  // Hautes herbes qui ondulent (ne bloquent pas : les Pokémon s'y cachent à moitié).
+  for (let ty = 2; ty < MH - 2; ty++) for (let tx = 2; tx < MW - 2; tx++) {
+    const reg = region[ty * MW + tx]
+    if (![3, 4, 5, 7].includes(reg) || !free(tx, ty) || roadDist(tx * TS + 8, ty * TS + 8) < 22) continue
+    if (fbm(tx / 4, ty / 4, 200) < 0.6 || objects.some((o) => Math.abs(o.x - tx * TS - 8) < 12 && Math.abs(o.y - ty * TS - 12) < 12)) continue
+    const col = reg === 3 ? ['#7DC45E', '#4E9C3D', '#3F8633', '#1F4A1A'] : undefined
+    const f = [A.tallGrass(0, col), A.tallGrass(1, col)]
+    objects.push({ x: tx * TS + 8, y: ty * TS + 13, s: f[0], frames: f })
+  }
+  // Glacier : igloo et bonhomme de neige.
+  for (const [tx, ty, s] of [[21, 7, A.igloo()], [24, 9, A.snowman()], [6, 8, A.snowman()]] as const) if (free(tx, ty)) place(tx, ty, s, s.img.width > 30 ? 3 : 1)
+  // Montagne : grotte au pied d'une falaise.
+  outer: for (let ty = 3; ty < 22; ty++) for (let tx = 36; tx < 60; tx++) if (kind[(ty * TS + 8) * W + tx * TS + 8] === 8 && free(tx, ty + 1)) { place(tx, ty + 1, A.cave(), 3); break outer }
+  // Marais : lanternes aux feux verts.
+  for (const [tx, ty] of [[12, 52], [19, 58], [6, 61], [27, 60], [15, 67]]) if (free(tx, ty)) { place(tx, ty, A.lantern()); lights.push({ x: tx * TS + 8, y: ty * TS - 10, r: 30, c: '120,255,180' }) }
+  // Ruines : fontaine et statues.
+  if (walk[63 * MW + 48] !== 0) place(48, 63, A.fountain(), 3)
+  for (const [tx, ty] of [[44, 59], [52, 59]]) place(tx, ty, A.statue())
+  // Centrale : câbles entre pylônes.
+  const pylons = objects.filter((o) => o.s.img.height === 46 && o.s.img.width === 20)
+  const cables: number[][] = []
+  for (let k = 1; k < pylons.length; k++) { const a = pylons[k - 1], b = pylons[k]; cables.push([a.x - 7, a.y - 34, b.x - 7, b.y - 34], [a.x + 7, a.y - 34, b.x + 7, b.y - 34]) }
+  // Volcan : fumerolles.
+  const vents = [[72, 13], [89, 15], [77, 6], [68, 19]].map(([x, y]) => ({ x: T(x), y: T(y) }))
+  for (const v of vents) { g.fillStyle = '#251B1A'; g.fillRect(v.x - 2, v.y - 1, 5, 3); g.fillStyle = '#F2621F'; g.fillRect(v.x - 1, v.y, 3, 1) }
+  return { terrain, region, walk, objects, water, lava, lights, cables, vents }
 }

@@ -28,6 +28,7 @@ export function World() {
       if (!canvas.current) return
       const e = new WorldEngine(canvas.current, ids, { pick: setPicked, region: setRegion })
       engine.current = e
+      if (import.meta.env.DEV) (window as unknown as { __world: WorldEngine }).__world = e
       setCounts(REGIONS.map((_, r) => e.countIn(r)))
       e.start(); setReady(true)
     }, 60)

@@ -4,9 +4,11 @@ import { DB } from '../data'
 import { bubble, EMOTES, type Sprite } from './art'
 import { buildWorld, MH, MW, REGIONS, RH, RW, regionCenter, regionOfType, TS, type World } from './map'
 import { hash } from './noise'
+const T = (x: number) => x * TS
 import { dirOf, frameAt, loadAnim, type Anim } from './sprites'
 
 type Mode = 'land' | 'swim' | 'fly' | 'float'
+type PKind = 'snow' | 'ember' | 'fly' | 'fog' | 'smoke' | 'steam' | 'butterfly' | 'leaf' | 'bubble'
 type State = 'idle' | 'walk' | 'sleep' | 'hop'
 type Mon = {
   id: number; region: number; mode: Mode
@@ -34,7 +36,7 @@ export class WorldEngine {
   picked: number | null = null
   time: Time = timeOfDay()
   sheet = new Image()
-  particles: { x: number; y: number; vx: number; vy: number; kind: 'snow' | 'ember' | 'fly' | 'fog'; p: number }[] = []
+  particles: { x: number; y: number; ox: number; oy: number; kind: PKind; p: number; life: number }[] = []
   private raf = 0
   private last = 0
   private regionNow = -1
@@ -128,13 +130,21 @@ export class WorldEngine {
   }
 
   private seedParticles() {
-    const add = (region: number, n: number, kind: 'snow' | 'ember' | 'fly' | 'fog') => {
+    const add = (region: number, n: number, kind: PKind) => {
       const ox = (region % 3) * RW * TS, oy = Math.floor(region / 3) * RH * TS
-      for (let k = 0; k < n; k++) this.particles.push({ x: ox + Math.random() * RW * TS, y: oy + Math.random() * RH * TS, vx: 0, vy: 0, kind, p: Math.random() * 10 })
+      for (let k = 0; k < n; k++) { const x = ox + Math.random() * RW * TS, y = oy + Math.random() * RH * TS; this.particles.push({ x, y, ox: x, oy: y, kind, p: Math.random() * 10, life: 0 }) }
+    }
+    const source = (x: number, y: number, n: number, kind: PKind, life: number) => {
+      for (let k = 0; k < n; k++) this.particles.push({ x, y, ox: x, oy: y, kind, p: (k / n) * life, life })
     }
     add(0, 160, 'snow'); add(2, 60, 'ember'); add(6, 14, 'fog')
-    if (this.time !== 'day') { add(3, 40, 'fly'); add(4, 30, 'fly'); add(6, 30, 'fly') }
+    source(85 * TS + 8, 9 * TS + 12 - 76, 30, 'smoke', 7)
+    for (const v of this.world.vents) source(v.x, v.y, 6, 'steam', 3)
+    for (let k = 0; k < 10; k++) source(T(8 + (k % 4) * 5), T(54 + Math.floor(k / 4) * 5), 2, 'bubble', 2.5)
+    if (this.time === 'day') { add(4, 18, 'butterfly'); add(3, 8, 'butterfly'); add(7, 10, 'butterfly'); add(3, 40, 'leaf') }
+    else { add(3, 40, 'fly'); add(4, 30, 'fly'); add(6, 30, 'fly') }
   }
+
 
   // ——— Caméra et gestes ———
   clamp(c: { x: number; y: number }) {
@@ -216,12 +226,21 @@ export class WorldEngine {
     }
     for (const p of this.particles) {
       p.p += dt
-      if (p.kind === 'snow') { p.y += 12 * dt; p.x += Math.sin(p.p * 1.3) * 6 * dt }
-      else if (p.kind === 'ember') { p.y -= 14 * dt; p.x += Math.sin(p.p * 2) * 8 * dt }
-      else if (p.kind === 'fly') { p.x += Math.sin(p.p * 0.9) * 10 * dt; p.y += Math.cos(p.p * 1.1) * 8 * dt }
-      else { p.x += 5 * dt }
-      const reg = { snow: 0, ember: 2, fly: -1, fog: 6 }[p.kind]
-      if (reg >= 0) {
+      switch (p.kind) {
+        case 'snow': p.y += 12 * dt; p.x += Math.sin(p.p * 1.3) * 6 * dt; break
+        case 'ember': p.y -= 14 * dt; p.x += Math.sin(p.p * 2) * 8 * dt; break
+        case 'fly': p.x += Math.sin(p.p * 0.9) * 10 * dt; p.y += Math.cos(p.p * 1.1) * 8 * dt; break
+        case 'fog': p.x += 5 * dt; break
+        case 'butterfly': p.x += Math.sin(p.p * 0.7) * 18 * dt; p.y += Math.cos(p.p * 0.9) * 10 * dt - Math.abs(Math.sin(p.p * 5)) * 3 * dt; break
+        case 'leaf': p.y += 9 * dt; p.x += Math.sin(p.p * 1.6) * 10 * dt; break
+        case 'smoke': case 'steam': case 'bubble': {
+          const k = (p.p % p.life) / p.life
+          p.x = p.ox + Math.sin(p.p * 0.8) * (p.kind === 'smoke' ? 6 + k * 22 : 3) + (p.kind === 'smoke' ? k * 26 : 0)
+          p.y = p.oy - k * (p.kind === 'smoke' ? 90 : p.kind === 'steam' ? 26 : 5)
+        }
+      }
+      const reg = ({ snow: 0, ember: 2, leaf: 3, fog: 6 } as Partial<Record<PKind, number>>)[p.kind]
+      if (reg !== undefined) {
         const ox = (reg % 3) * RW * TS, oy = Math.floor(reg / 3) * RH * TS
         if (p.y > oy + RH * TS) p.y = oy; if (p.y < oy) p.y = oy + RH * TS
         if (p.x > ox + RW * TS) p.x = ox
@@ -259,22 +278,36 @@ export class WorldEngine {
 
     // Objets et Pokémon triés du fond vers l'avant.
     const items: { y: number; f: () => void }[] = []
-    for (const o of w.objects) if (inView(o.x, o.y, 60)) items.push({ y: o.y, f: () => ctx.drawImage(o.s.img, Math.round(o.x - o.s.ax), Math.round(o.y - o.s.ay)) })
+    for (const o of w.objects) if (inView(o.x, o.y, 60)) { const s = o.frames ? o.frames[Math.floor(t / 650 + o.x * 0.011 + o.y * 0.007) % 2] : o.s; items.push({ y: o.y, f: () => ctx.drawImage(s.img, Math.round(o.x - s.ax), Math.round(o.y - s.ay)) }) }
     for (const m of this.mons) if (inView(m.x, m.y, 50)) items.push({ y: m.y, f: () => this.drawMon(m, t) })
     items.sort((a, b) => a.y - b.y)
     for (const it of items) it.f()
 
-    // Ambiance : neige, braises, brume, lucioles.
+    // Câbles électriques, légèrement détendus.
+    ctx.strokeStyle = 'rgba(30,34,40,.85)'; ctx.lineWidth = 0.75
+    for (const [x1, y1, x2, y2] of w.cables) if (inView((x1 + x2) / 2, (y1 + y2) / 2, 200)) { ctx.beginPath(); ctx.moveTo(x1, y1); ctx.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + 10, x2, y2); ctx.stroke() }
+    // Ambiance : neige, braises, brume, fumée, papillons, feuilles, bulles, lucioles.
     for (const p of this.particles) {
       if (!inView(p.x, p.y, 10)) continue
       if (p.kind === 'snow') { ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1) }
       else if (p.kind === 'ember') { ctx.fillStyle = (p.p % 1) < 0.5 ? '#FFB13B' : '#F2621F'; ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 1) }
       else if (p.kind === 'fog') { ctx.fillStyle = 'rgba(220,230,220,.07)'; ctx.beginPath(); ctx.ellipse(p.x, p.y, 60, 18, 0, 0, Math.PI * 2); ctx.fill() }
+      else if (p.kind === 'smoke' || p.kind === 'steam') {
+        const k = (p.p % p.life) / p.life, r = p.kind === 'smoke' ? 3 + k * 9 : 1.5 + k * 3
+        ctx.fillStyle = p.kind === 'smoke' ? `rgba(150,138,134,${0.6 * (1 - k)})` : `rgba(240,240,240,${0.5 * (1 - k)})`
+        ctx.beginPath(); ctx.arc(Math.round(p.x), Math.round(p.y), r, 0, Math.PI * 2); ctx.fill()
+      } else if (p.kind === 'bubble') { const k = (p.p % p.life) / p.life; if (k < 0.8) { ctx.strokeStyle = 'rgba(200,230,210,.7)'; ctx.lineWidth = 0.75; ctx.beginPath(); ctx.arc(Math.round(p.x), Math.round(p.y), 1 + k * 1.5, 0, Math.PI * 2); ctx.stroke() } }
+      else if (p.kind === 'leaf') { ctx.fillStyle = (p.p % 2) < 1 ? '#E8A23A' : '#9CCB4E'; ctx.fillRect(Math.round(p.x), Math.round(p.y), 2, 1) }
+      else if (p.kind === 'butterfly') {
+        const open = Math.floor(p.p * 8) % 2, c = ['#FFFFFF', '#FFD34D', '#F59ACB'][Math.floor(hash(p.ox, p.oy, 3) * 3)]
+        ctx.fillStyle = c; if (open) { ctx.fillRect(Math.round(p.x) - 2, Math.round(p.y), 2, 2); ctx.fillRect(Math.round(p.x) + 1, Math.round(p.y), 2, 2) } else ctx.fillRect(Math.round(p.x) - 1, Math.round(p.y), 3, 2)
+        ctx.fillStyle = '#2B2B2B'; ctx.fillRect(Math.round(p.x), Math.round(p.y), 1, 2)
+      }
     }
     // Lumière : teinte du soir ou de la nuit, puis lueurs.
     if (this.time !== 'day') {
       ctx.globalCompositeOperation = 'multiply'
-      ctx.fillStyle = this.time === 'night' ? '#4E57A0' : '#F2B79A'
+      ctx.fillStyle = this.time === 'night' ? '#4E57A0' : '#F7D3BE'
       ctx.fillRect(cx - 2, cy - 2, vw + 4, vh + 4)
       ctx.globalCompositeOperation = 'lighter'
       for (const l of w.lights) if (inView(l.x, l.y, l.r)) {

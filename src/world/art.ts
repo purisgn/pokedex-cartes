@@ -95,16 +95,19 @@ export function temple(): Sprite {
   px(g, 26, 7, '#FA7179', 4, 4)
   return { img: c, ax: 28, ay: 41 }
 }
-export function cone(): Sprite {
-  const [c, g] = canvas(96, 64)
-  shadow(g, 48, 60, 44, 4)
-  blob(g, 96, 62, (x, y) => y >= 8 && y <= 61 && Math.abs(x - 48) <= 9 + (y - 8) * 0.72, ['#8C7A76', '#6B5A57', '#4E403E', '#251B1A'], 0.35, 0.3)
-  for (let y = 8; y < 13; y++) px(g, 48 - 9 + (y - 8), y, '#FF8A2A', 18 - (y - 8) * 2, 1)
-  for (const [x0, len, dir] of [[42, 26, -0.35], [53, 20, 0.4], [47, 34, 0.08]]) for (let k = 0; k < len; k++) {
-    const x = Math.round(x0 + k * dir + Math.sin(k / 3) * 1.2), y = 12 + k
+export function cone(W = 132, H = 86): Sprite {
+  const [c, g] = canvas(W, H)
+  const cx = W / 2, top = 10, slope = (W / 2 - 14) / (H - top - 4)
+  shadow(g, cx, H - 4, W / 2 - 4, 5)
+  blob(g, W, H - 2, (x, y) => y >= top && y <= H - 3 && Math.abs(x - cx) <= 12 + (y - top) * slope + Math.sin(y / 3) * 1.4, ['#8C7A76', '#6B5A57', '#4E403E', '#251B1A'], 0.35, 0.3)
+  for (let y = top + 14; y < H - 6; y += 7) for (let x = cx - (y - top) * slope * 0.8; x < cx + (y - top) * slope * 0.8; x += 10) px(g, Math.round(x + (y % 3)), y, '#5A4A48', 4, 1)
+  for (let y = top; y < top + 6; y++) px(g, Math.round(cx - 12 + (y - top)), y, '#FF8A2A', 24 - (y - top) * 2, 1)
+  px(g, Math.round(cx - 6), top + 1, '#FFD45C', 12, 2)
+  for (const [x0, len, dir] of [[cx - 7, 36, -0.4], [cx + 6, 28, 0.45], [cx, 46, 0.06]]) for (let k = 0; k < len; k++) {
+    const x = Math.round(x0 + k * dir + Math.sin(k / 3) * 1.4), y = top + 5 + k
     px(g, x, y, k % 7 === 0 ? '#FFD45C' : '#F2621F', 2, 1)
   }
-  return { img: c, ax: 48, ay: 60 }
+  return { img: c, ax: cx, ay: H - 4 }
 }
 export function pylon(): Sprite {
   const [c, g] = canvas(20, 46)
@@ -183,4 +186,81 @@ export function bubble(kind: string): Sprite {
   px(g, 3, h - 1, '#FFFFFF', 3, 1); px(g, 3, h, '#2B2E33', 1, 2); px(g, 4, h, '#FFFFFF', 1, 1); px(g, 4, h + 1, '#2B2E33', 1, 1); px(g, 5, h, '#2B2E33', 1, 1)
   ic.forEach((row, y) => [...row].forEach((ch, x) => ch === '#' && px(g, 3 + x, 3 + y, COLORS[kind])))
   return { img: c, ax: 4, ay: h + 2 }
+}
+
+// ——— Décors supplémentaires ———
+export function tallGrass(frame: number, col = ['#A6E07A', '#6FBE52', '#4E9A35', '#2F6927']): Sprite {
+  const [c, g] = canvas(18, 14)
+  const sway = frame ? 1 : 0
+  for (const [x0, h] of [[2, 9], [5, 12], [8, 10], [11, 12], [14, 9]]) {
+    for (let k = 0; k < h; k++) {
+      const x = x0 + (k > h * 0.55 ? sway : 0), y = 13 - k
+      px(g, x, y, k > h - 3 ? col[0] : k > h * 0.5 ? col[1] : col[2]); px(g, x + 1, y, col[3])
+    }
+  }
+  return { img: c, ax: 9, ay: 12 }
+}
+export function lamp(): Sprite {
+  const [c, g] = canvas(12, 34)
+  shadow(g, 6, 32, 4, 1)
+  px(g, 5, 8, '#2B2E33', 2, 24); px(g, 4, 30, '#2B2E33', 4, 2)
+  px(g, 2, 2, '#2B2E33', 8, 7); px(g, 3, 3, '#FFE7A0', 6, 5); px(g, 3, 3, '#FFF6D2', 2, 2); px(g, 1, 1, '#2B2E33', 10, 2)
+  return { img: c, ax: 6, ay: 32 }
+}
+export function snowman(): Sprite {
+  const [c, g] = canvas(18, 26)
+  shadow(g, 9, 24, 7, 2)
+  const snow = ['#FFFFFF', '#F1F6FA', '#CFDDE8', '#5A7286']
+  blob(g, 18, 25, (x, y) => Math.hypot(x - 9, y - 18) <= 6.5 || Math.hypot(x - 9, y - 8) <= 4.8, snow)
+  px(g, 7, 7, '#2B2B2B'); px(g, 10, 7, '#2B2B2B'); px(g, 9, 9, '#F2821F', 3, 1)
+  px(g, 5, 11, '#E2432A', 8, 2); px(g, 6, 1, '#2B2B2B', 6, 3); px(g, 5, 4, '#2B2B2B', 8, 1)
+  px(g, 9, 16, '#2B2B2B'); px(g, 9, 19, '#2B2B2B')
+  return { img: c, ax: 9, ay: 24 }
+}
+export function igloo(): Sprite {
+  const [c, g] = canvas(40, 26)
+  shadow(g, 20, 24, 18, 2)
+  blob(g, 40, 25, (x, y) => y <= 24 && Math.hypot((x - 20) / 18, (y - 24) / 20) <= 1, ['#FFFFFF', '#EAF3F9', '#C6D8E6', '#5A7286'], 0.35, 0.2)
+  for (let y = 8; y < 24; y += 5) for (let x = 3; x < 37; x++) if (Math.hypot((x - 20) / 18, (y - 24) / 20) < 0.97) px(g, x, y, '#C6D8E6')
+  blob(g, 40, 25, (x, y) => y >= 15 && y <= 24 && Math.abs(x - 20) <= 5 && (y >= 19 || Math.hypot(x - 20, y - 19) <= 5), ['#3E4A5C', '#2B3442', '#1D242E', '#5A7286'])
+  return { img: c, ax: 20, ay: 24 }
+}
+export function cave(): Sprite {
+  const [c, g] = canvas(36, 26)
+  blob(g, 36, 26, (x, y) => y <= 25 && Math.hypot((x - 18) / 17, (y - 25) / 22) <= 1, ['#CDB083', '#A0835A', '#7E6340', '#3E3020'], 0.3, 0.2)
+  blob(g, 36, 26, (x, y) => y >= 9 && y <= 25 && Math.hypot((x - 18) / 9, (y - 25) / 15) <= 1, ['#2A2018', '#1B140F', '#120D0A', '#3E3020'])
+  return { img: c, ax: 18, ay: 25 }
+}
+export function lantern(): Sprite {
+  const [c, g] = canvas(10, 26)
+  shadow(g, 5, 24, 3, 1)
+  px(g, 4, 6, '#3A2E3E', 2, 18); px(g, 1, 0, '#3A2E3E', 8, 7); px(g, 2, 1, '#9CF5C8', 6, 5); px(g, 3, 2, '#E2FFF0', 2, 2)
+  return { img: c, ax: 5, ay: 24 }
+}
+export function fountain(): Sprite {
+  const [c, g] = canvas(40, 30)
+  shadow(g, 20, 27, 18, 3)
+  const stone = ['#F2EBDD', '#D9CFBC', '#B4A891', '#5C5444']
+  blob(g, 40, 29, (x, y) => y >= 18 && y <= 28 && Math.hypot((x - 20) / 18, (y - 22) / 7) <= 1, stone)
+  blob(g, 40, 29, (x, y) => y >= 18 && y <= 25 && Math.hypot((x - 20) / 14, (y - 21) / 4.2) <= 1, ['#9FD6F7', '#4FA3E6', '#3A8FD8', '#2E74B5'])
+  blob(g, 40, 29, (x, y) => (x >= 18 && x <= 22 && y >= 6 && y <= 21) || (Math.hypot((x - 20) / 7, (y - 7) / 2.5) <= 1), stone, 0.2, 0.2)
+  return { img: c, ax: 20, ay: 27 }
+}
+export function statue(): Sprite {
+  const [c, g] = canvas(22, 38)
+  shadow(g, 11, 36, 9, 2)
+  const stone = ['#E9E4F2', '#C6BFD6', '#9C94B0', '#4A4460']
+  blob(g, 22, 37, (x, y) => y >= 28 && y <= 36 && x >= 2 && x <= 19, stone)
+  // silhouette d'un Pokémon (oreilles pointues) sur socle
+  blob(g, 22, 37, (x, y) => (Math.hypot(x - 11, y - 20) <= 6.5) || (Math.hypot(x - 11, y - 11) <= 5) || (y >= 2 && y <= 9 && (Math.abs(x - 7 - (9 - y) * 0.3) <= 1.2 || Math.abs(x - 15 + (9 - y) * 0.3) <= 1.2)), stone, 0.3, 0.2)
+  return { img: c, ax: 11, ay: 36 }
+}
+export function charred(): Sprite {
+  const [c, g] = canvas(20, 28)
+  shadow(g, 10, 26, 6, 2)
+  const col = '#2B2220', hi = '#4A3A36'
+  px(g, 9, 8, col, 3, 18); px(g, 10, 8, hi, 1, 17)
+  for (const [x, y, dx, n] of [[9, 12, -1, 6], [12, 10, 1, 6], [9, 17, -1, 4], [12, 15, 1, 4]]) for (let k = 0; k < n; k++) px(g, x + dx * k, y - Math.round(k * 0.8), col, 2, 1)
+  px(g, 10, 7, '#F2621F', 1, 1)
+  return { img: c, ax: 10, ay: 26 }
 }
