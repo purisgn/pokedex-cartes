@@ -539,3 +539,36 @@ main.with-tabs { padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) }
 .metas b { color: var(--text); font-weight: 600 }
 .dmg { font-size: var(--fs-xl); font-weight: 600; font-variant-numeric: tabular-nums }
 .cimg.ph { display: grid; place-items: center; align-content: center; gap: 6px; text-align: center; padding: 10px; font-size: 11px; color: var(--text-3); background: var(--bg-muted) }
+
+/* Fiche carte v4 : grammaire de la fiche Pokémon, couleur de la carte */
+.card-v .card-stage { height: 390px }
+.card-v .card-stage .mon-disc { top: 26px }
+.card-v .tilt { width: min(58vw, 240px) }
+.card-v .tilt .cimg { box-shadow: none }
+.card-v .rows-plain div { grid-template-columns: 112px 1fr; align-items: center; min-height: 28px }
+.row-link { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--text) }
+.row-link > svg { color: color-mix(in oklab, var(--text-3) 60%, var(--t)) }
+.row-mark { width: 44px; height: 24px; display: grid; place-items: center }
+.row-mark .fan { width: 64px; height: 44px; scale: .3 }
+.row-sprite { margin: -8px -4px -8px -6px }
+.row-type { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap }
+.row-type > span:first-child:not(.inline) { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center }
+.reg { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: var(--r-xs); background: var(--text); color: var(--bg); font-size: var(--fs-sm) }
+.card-v .move { padding: 14px 0; border-bottom: 1px solid color-mix(in oklab, var(--t) 22%, white) }
+.card-v .move:first-child { padding-top: 0 }
+.card-v .move p { color: var(--text-2) }
+.card-v .dmg { font-size: var(--fs-xl) }
+.price-big { display: grid; gap: 2px; padding-bottom: 14px; border-bottom: 1px solid color-mix(in oklab, var(--t) 22%, white) }
+.price-big span { color: var(--text-3); font-size: var(--fs-sm) }
+.price-big b { font-size: 34px; font-weight: 600; line-height: 1.15; font-variant-numeric: tabular-nums }
+.price-big em { display: inline-flex; align-items: center; gap: 4px; font-style: normal; font-size: var(--fs-sm); font-weight: 600 }
+.price-big em.up { color: var(--success) }
+.price-big em.down { color: var(--favorite) }
+.text-link { display: inline-flex; align-items: center; gap: 4px; margin-top: 18px; font-size: var(--fs-sm); font-weight: 600; color: color-mix(in oklab, var(--text) 60%, var(--t)) }
+.card-bar { align-items: center; gap: 6px; padding: 6px }
+.card-bar button { width: 46px; height: 46px; color: var(--text-2) }
+.card-bar button:disabled { color: var(--border-strong) }
+.card-bar-n { display: inline-flex; align-items: baseline; gap: 6px; min-width: 130px; justify-content: center; font-size: var(--fs-sm); color: var(--text-2) }
+.card-bar-n b { font-size: var(--fs-xl); color: var(--text) }
+.card-bar .card-bar-add { background: var(--t); color: var(--ink) }
+.card-v .mon-body { padding-bottom: calc(112px + env(safe-area-inset-bottom, 0px)) }
