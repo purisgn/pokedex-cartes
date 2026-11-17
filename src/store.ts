@@ -23,6 +23,7 @@ export let sync: SyncState = { status: 'signedout' }
 export let user: { id: string; email?: string } | null = null
 export let recovering = false     // arrivée par le lien « mot de passe oublié »
 let syncedAt = ''                 // date serveur de la version que ce téléphone connaît
+let dirty = false                 // des changements faits sur ce téléphone attendent d'être envoyés
 const setSync = (s: SyncState) => { sync = s; emit() }
 const failed = () => setSync({ status: navigator.onLine ? 'error' : 'offline', at: sync.at })
 
@@ -52,25 +53,39 @@ function schedulePush(delay = 1200) {
 }
 async function push() {
   if (!supabase || !user) return
+  if (!owned.size) {
+    const { data: remote } = await supabase.from('user_collections').select('data').eq('user_id', user.id).maybeSingle()
+    const remoteCount = Object.keys((remote?.data as Payload | undefined)?.cards ?? {}).length
+    if (remoteCount > 1 && !confirmEmptyPush) { await pull(true); return }   // garde-fou : on ne vide pas un compte par erreur
+  }
+  confirmEmptyPush = false
   const { data, error } = await supabase.from('user_collections')
     .upsert({ user_id: user.id, data: snapshot() }).select('updated_at').single()
   if (error || !data) return failed()
+  dirty = false
   syncedAt = data.updated_at; await set('sync-at:' + user.id, syncedAt)
   setSync({ status: 'saved', at: syncedAt })
 }
+let confirmEmptyPush = false
 
 // Relit le compte : la version en ligne gagne si elle est plus récente que celle du téléphone.
-export async function pull() {
+export async function pull(force = false) {
   if (!supabase || !user) return
   const { data, error } = await supabase.from('user_collections').select('data, updated_at').eq('user_id', user.id).maybeSingle()
   if (error) return failed()
-  const firstOnDevice = !syncedAt
-  if (!data) return schedulePush(0)                       // compte neuf : on y envoie ce que le téléphone contient
-  if (firstOnDevice) { mergeLocal(data.data); return schedulePush(0) }
-  if (data.updated_at > syncedAt) {
+  if (!data) { dirty = true; return schedulePush(0) }       // compte neuf : on y envoie ce que le téléphone contient
+  const remoteMoved = data.updated_at > syncedAt
+  if (force || !dirty) {
+    // Rien de neuf ici : le compte fait foi (téléphone vidé par iOS, réinstallation, autre appareil…).
     replaceLocal(data.data)
-    syncedAt = data.updated_at; await set('sync-at:' + user.id, syncedAt)
+  } else if (dirty && (remoteMoved || !syncedAt)) {
+    // Les deux ont bougé, ou ce téléphone ne connaît pas l'état du compte : on fusionne, on ne perd rien.
+    mergeLocal(data.data)
+    return schedulePush(0)
+  } else if (dirty) {
+    return schedulePush(0)
   }
+  syncedAt = data.updated_at; await set('sync-at:' + user.id, syncedAt)
   setSync({ status: 'saved', at: syncedAt })
 }
 
@@ -78,7 +93,10 @@ async function onUser(u: { id: string; email?: string } | null) {
   const changedUser = u?.id !== user?.id
   user = u
   if (!u) { setSync({ status: 'signedout' }); return }
-  if (changedUser) syncedAt = (await get<string>('sync-at:' + u.id)) ?? ''
+  if (changedUser) {
+    syncedAt = (await get<string>('sync-at:' + u.id)) ?? ''
+    if (!syncedAt && (owned.size || favs.size)) dirty = true
+  }
   emit()
   await pull()
 }
@@ -147,7 +165,7 @@ const saveLocal = () => {
   clearTimeout(saveT)
   saveT = setTimeout(() => { set('collection', [...owned]); set('favorites', [...favs]) }, 250)
 }
-const changed = () => { saveLocal(); schedulePush(); emit() }
+const changed = () => { dirty = true; if (!owned.size) confirmEmptyPush = true; saveLocal(); schedulePush(); emit() }
 
 export const qty = (id: string) => owned.get(id) ?? 0
 
