@@ -8,6 +8,7 @@ import { SetView } from './views/SetView'
 import { Scan } from './views/Scan'
 import { Collection } from './views/Collection'
 import { Account } from './views/Account'
+import { World } from './views/World'
 
 // Navigation par l'adresse (#/…) : le bouton retour du téléphone marche partout.
 const readRoute = () => location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent)
@@ -43,8 +44,9 @@ export function App() {
     page === 'series' ? <Series /> :
     page === 'scan' ? <Scan /> :
     page === 'collection' ? <Collection /> :
-    page === 'compte' ? <Account /> : <Pokedex />
-  const showTabs = !['scan', 'pokemon', 'card'].includes(page)
+    page === 'compte' ? <Account /> :
+    page === 'monde' ? <World /> : <Pokedex />
+  const showTabs = !['scan', 'pokemon', 'card', 'monde'].includes(page)
 
   return (
     <>

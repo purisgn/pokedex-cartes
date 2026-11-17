@@ -87,11 +87,13 @@ export function AnimSprite({ id, className }: { id: number; className?: string }
   return <img className={'anim ' + (className ?? '')} src={srcs[k]} alt="" onError={() => setK(k + 1)} />
 }
 
+// Image d'une carte : la haute définition demandée, sinon la version standard, sinon un emplacement propre.
 export function CardImg({ card, q = 'low', className }: { card: Card; q?: 'low' | 'high'; className?: string }) {
-  const src = card.hasImg ? cardImg(card, q) : undefined
+  const [level, setLevel] = useState<'high' | 'low' | 'none'>(card.hasImg ? q : 'none')
+  const src = level !== 'none' ? cardImg(card, level) : undefined
   return src
-    ? <img className={'cimg ' + (className ?? '')} src={src} alt={card.name} loading="lazy" decoding="async" crossOrigin="anonymous" />
-    : <span className={'cimg ph ' + (className ?? '')}>{card.name}</span>
+    ? <img className={'cimg ' + (className ?? '')} src={src} alt={card.name} loading="lazy" decoding="async" onError={() => setLevel(level === 'high' ? 'low' : 'none')} />
+    : <span className={'cimg ph ' + (className ?? '')}><Icon name="cards" size={22} /><span>{card.name}</span></span>
 }
 
 // Statistique encadrée (maquette : petit libellé en capitales avec icône, valeur dans un cadre).

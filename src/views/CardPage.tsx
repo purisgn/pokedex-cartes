@@ -1,85 +1,97 @@
-import { useRef, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
-import { DB, eur, fdate, norm, type Card } from '../data'
+import { useRef, useState, type CSSProperties, type PointerEvent } from 'react'
+import { DB, cardTint, eur, fdate, norm, type Card } from '../data'
 import { qty, setQty, useStore } from '../store'
 import { back, go } from '../App'
 import { inkOn, tcgType, TYPES, type TypeKey } from '../types'
 import { useLiveCard, type LiveCard } from '../live'
-import { CardImg, Icon, PokeballMark, Sprite, TypeGlyph } from '../ui/kit'
+import { CardImg, Icon, Sprite, TypeGlyph } from '../ui/kit'
+import { SetMark } from './Series'
 
-// Fiche carte, même grammaire que la fiche Pokémon (maquette Junior Saraiva) :
-// disque de la couleur du type, la carte en grand à la place du sprite, puces, caractéristiques encadrées.
+// Fiche carte (maquette « Pokedesk ») : la carte en grand sur un fond teinté quadrillé,
+// puis un panneau blanc : extension, prix et tendance, quantité, attaques et autres versions.
 export function CardPage({ id }: { id: string }) {
   useStore()
   const c = DB.byId.get(id)
   const live = useLiveCard(id)
+  const [tab, setTab] = useState<'moves' | 'versions'>('moves')
   if (!c) return <p className="empty">Carte introuvable.</p>
   const t = tcgType(c.type || live.data?.types?.[0])
+  const color = cardTint(c) ?? TYPES[t].color
   const n = qty(c.id)
   const i = c.set.cards.indexOf(c)
-  const step = (d: number) => go('card/' + encodeURIComponent(c.set.cards[(i + d + c.set.cards.length) % c.set.cards.length].id))
+  const step = (d: number) => i >= 0 && go('card/' + encodeURIComponent(c.set.cards[(i + d + c.set.cards.length) % c.set.cards.length].id))
   const mon = c.dexId.map((d) => DB.dex[d - 1]).find(Boolean)
   const rare = !!c.rarity && !/^(commune|peu commune)$/i.test(c.rarity)
   const trend = live.data?.pricing?.cardmarket?.trend
   const price = typeof trend === 'number' ? trend : c.price
 
   return (
-    <div className="mon-page" style={{ '--t': TYPES[t].color, '--ink': inkOn(TYPES[t].color) } as CSSProperties}>
-      <header className="mon-top">
-        <button className="icon-btn" onClick={back} aria-label="Retour"><Icon name="back" size={24} stroke={2.2} /></button>
-        <h1><PokeballMark size={22} /><span>{c.name}</span><small className="pixel">{c.localId}</small></h1>
-      </header>
+    <div className="cp" style={{ '--t': color, '--ink': inkOn(color) } as CSSProperties}>
+      <section className="cp-stage">
+        <header className="cp-top">
+          <button className="round light" onClick={back} aria-label="Retour"><Icon name="back" size={22} stroke={2.2} /></button>
+          <span className="cp-num pixel">{c.localId}<small>/{c.set.official || c.set.cards.length}</small></span>
+        </header>
+        <div className="cp-card">
+          {i >= 0 && <button className="cp-arrow" onClick={() => step(-1)} aria-label="Carte précédente"><Icon name="back" size={18} stroke={2.4} /></button>}
+          <TiltCard card={c} holo={rare} />
+          {i >= 0 && <button className="cp-arrow" onClick={() => step(1)} aria-label="Carte suivante"><Icon name="next" size={18} stroke={2.4} /></button>}
+        </div>
+        <div className="cp-title">
+          <h1>{c.name}</h1>
+          <p>
+            <span className="cp-type" style={{ background: TYPES[t].color }}><TypeGlyph type={t} size={11} /></span>
+            {c.rarity || c.category}{c.hp ? <> · <span className="pixel">{c.hp}</span> PV</> : null}
+          </p>
+        </div>
+      </section>
 
-      <div className="mon-stage card-stage">
-        <div className="mon-disc"><span className="mon-disc-ball" /></div>
-        <TiltCard card={c} holo={rare} />
-        <button className="mon-arrow left" onClick={() => step(-1)} aria-label="Carte précédente de l’extension"><Icon name="back" size={18} stroke={2.4} /></button>
-        <button className="mon-arrow right" onClick={() => step(1)} aria-label="Carte suivante de l’extension"><Icon name="next" size={18} stroke={2.4} /></button>
-      </div>
-      <div className="mon-types">
-        <span className="tpill" style={{ background: TYPES[t].color, color: inkOn(TYPES[t].color) }}>{(c.type || c.category).toLowerCase()}</span>
-        {c.rarity && <span className="tpill light">{c.rarity.toLowerCase()}</span>}
-        {c.hp ? <span className="tpill light"><span className="pixel">{c.hp}</span> PV</span> : null}
-      </div>
-
-      <div className="mon-body">
-        {mon && (
-          <a className="mon-link" href={'#/pokemon/' + mon.id}>
-            <Sprite id={mon.id} size={48} />
-            <span><b>{mon.name}</b><small>Voir sa fiche Pokédex</small></span>
-            <Icon name="next" size={18} stroke={2} />
-          </a>
-        )}
-
-        <Moves live={live.data} loading={!live.done} />
-
-        <a className="set-link" href={'#/set/' + c.set.id}>
-          <span className="num-pill pixel">#{c.localId}</span>
-          <span className="set-link-txt"><b>{c.set.name}</b><small>{c.set.serie.name} · {fdate(c.set.date)}</small></span>
+      <section className="cp-sheet">
+        <a className="cp-row" href={'#/set/' + c.set.id}>
+          <span className="cp-set-mark"><SetMark set={c.set} /></span>
+          <span className="cp-row-txt"><b>{c.set.name}</b><small>{c.set.serie.name} · {fdate(c.set.date)}</small></span>
           <Icon name="next" size={18} stroke={2} />
         </a>
 
-        <div className="price-card">
-          <CardImg card={c} />
-          <div className="price-txt">
+        <div className="cp-price">
+          <div>
             <small>Prix moyen Cardmarket</small>
             <b>{price ? eur(price) : '—'}</b>
             <Trend live={live.data} />
           </div>
-          {n > 0 && price ? <span className="price-mine"><small>Mes {n}</small><b>{eur(price * n)}</b></span> : null}
-        </div>
-        {live.data?.illustrator && <p className="hint">Illustration de {live.data.illustrator}</p>}
-
-        <div className="buy-row">
-          <div className="mini-stepper">
-            <button onClick={() => setQty(c.id, n - 1)} disabled={!n} aria-label="Retirer un exemplaire"><Icon name="back" size={18} stroke={2.4} /></button>
-            <b className="pixel" aria-live="polite">{n}</b>
-            <button onClick={() => setQty(c.id, n + 1)} aria-label="Ajouter un exemplaire"><Icon name="next" size={18} stroke={2.4} /></button>
-          </div>
-          <button className="btn" onClick={() => setQty(c.id, n + 1)}><Icon name="plus" size={18} stroke={2.4} />{n ? 'Ajouter un exemplaire' : 'Ajouter à ma collection'}</button>
+          {n > 0 && price ? <div className="cp-mine"><small>Tes {n}</small><b>{eur(price * n)}</b></div> : null}
         </div>
 
-        <Versions card={c} />
-      </div>
+        <div className="cp-own">
+          {n ? (
+            <>
+              <div className="qty">
+                <button onClick={() => setQty(c.id, n - 1)} aria-label="Retirer un exemplaire"><Icon name="minus" size={18} stroke={2.4} /></button>
+                <b className="pixel" aria-live="polite">{n}</b>
+                <button onClick={() => setQty(c.id, n + 1)} aria-label="Ajouter un exemplaire"><Icon name="plus" size={18} stroke={2.4} /></button>
+              </div>
+              <p className="cp-own-txt"><span className="ok-dot"><Icon name="check" size={11} stroke={3} /></span>Dans ta collection</p>
+            </>
+          ) : (
+            <button className="btn" onClick={() => setQty(c.id, 1)}><Icon name="plus" size={18} stroke={2.4} />Ajouter à ma collection</button>
+          )}
+        </div>
+
+        {mon && (
+          <a className="cp-row" href={'#/pokemon/' + mon.id}>
+            <span className="cp-mon"><Sprite id={mon.id} size={56} /></span>
+            <span className="cp-row-txt"><b>{mon.name}</b><small>Voir sa fiche Pokédex</small></span>
+            <Icon name="next" size={18} stroke={2} />
+          </a>
+        )}
+
+        <div className="seg block">
+          <button className={tab === 'moves' ? 'on' : ''} onClick={() => setTab('moves')}>{c.category === 'Pokémon' ? 'Attaques' : 'Effet'}</button>
+          <button className={tab === 'versions' ? 'on' : ''} onClick={() => setTab('versions')}>Autres versions</button>
+        </div>
+        {tab === 'moves' ? <Moves live={live.data} loading={!live.done} /> : <Versions card={c} />}
+        {tab === 'moves' && live.data?.illustrator && <p className="hint center">Illustration de {live.data.illustrator}</p>}
+      </section>
     </div>
   )
 }
@@ -107,20 +119,13 @@ function TiltCard({ card, holo }: { card: Card; holo: boolean }) {
 
 function Energy({ type, size = 20 }: { type: string; size?: number }) {
   const k: TypeKey = tcgType(type)
-  return (
-    <span className="energy" title={type} style={{ width: size, height: size, background: TYPES[k].color }}>
-      <TypeGlyph type={k} size={size * 0.58} />
-    </span>
-  )
+  return <span className="energy" title={type} style={{ width: size, height: size, background: TYPES[k].color }}><TypeGlyph type={k} size={size * 0.58} /></span>
 }
 
 function Moves({ live, loading }: { live: LiveCard | null; loading: boolean }) {
   if (loading) return <div className="moves"><span className="skel" /><span className="skel short" /></div>
-  if (!live) return <p className="lore">Attaques et talents s’afficheront avec une connexion.</p>
+  if (!live) return <p className="hint center">Les attaques s’afficheront avec une connexion.</p>
   const text = live.effect || live.description
-  const extra: ReactNode[] = []
-  if (live.weaknesses?.length) extra.push(<span key="w" className="meta">Faiblesse {live.weaknesses.map((w) => <span key={w.type} className="inline"><Energy type={w.type} size={16} />{w.value}</span>)}</span>)
-  if (live.retreat) extra.push(<span key="r" className="meta">Retraite <span className="cost">{Array.from({ length: live.retreat }, (_, k) => <Energy key={k} type="Incolore" size={16} />)}</span></span>)
   return (
     <div className="moves">
       {live.abilities?.map((a) => (
@@ -134,13 +139,19 @@ function Moves({ live, loading }: { live: LiveCard | null; loading: boolean }) {
           <div className="move-head">
             <span className="cost">{(a.cost ?? []).map((e, k) => <Energy key={k} type={e} />)}</span>
             <b>{a.name}</b>
-            {a.damage !== undefined && <span className="dmg pixel">{a.damage}</span>}
+            {a.damage !== undefined && <span className="dmg">{a.damage}</span>}
           </div>
           {a.effect && <p>{a.effect}</p>}
         </div>
       ))}
-      {text && <p className="lore">“{text}”</p>}
-      {extra.length > 0 && <div className="metas">{extra}</div>}
+      {text && <p className="lore">{text}</p>}
+      {(live.weaknesses?.length || live.retreat) ? (
+        <div className="metas">
+          {live.weaknesses?.map((w) => <span key={w.type} className="meta">Faiblesse <Energy type={w.type} size={16} /><b>{w.value}</b></span>)}
+          {live.resistances?.map((w) => <span key={w.type} className="meta">Résistance <Energy type={w.type} size={16} /><b>{w.value}</b></span>)}
+          {live.retreat ? <span className="meta">Retraite <span className="cost">{Array.from({ length: live.retreat }, (_, k) => <Energy key={k} type="Incolore" size={16} />)}</span></span> : null}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -157,22 +168,19 @@ function Trend({ live }: { live: LiveCard | null }) {
 
 function Versions({ card }: { card: Card }) {
   const key = card.dexId[0]
-  const list = (key ? DB.byDex.get(key) ?? [] : DB.cards.filter((x) => norm(x.name) === norm(card.name)))
+  const list = (key ? DB.byDex.get(key) ?? [] : DB.cards.filter((x) => x.hasImg && x.set.img && norm(x.name) === norm(card.name)))
     .filter((x) => x.id !== card.id)
     .sort((a, b) => +!!qty(b.id) - +!!qty(a.id) || (b.set.date ?? '').localeCompare(a.set.date ?? ''))
-  if (!list.length) return null
+  if (!list.length) return <p className="hint center">Aucune autre version de cette carte.</p>
   return (
-    <>
-      <div className="section-head"><h2>Autres versions</h2><span className="muted pixel">{list.length}</span></div>
-      <div className="rail">
-        {list.slice(0, 30).map((x) => (
-          <a key={x.id} href={'#/card/' + encodeURIComponent(x.id)} className={'rail-card' + (qty(x.id) ? '' : ' miss')}>
-            <CardImg card={x} />
-            {qty(x.id) > 0 && <span className="badge">{qty(x.id)}</span>}
-            <span className="gcap">{x.set.name}</span>
-          </a>
-        ))}
-      </div>
-    </>
+    <div className="grid">
+      {list.slice(0, 60).map((x) => (
+        <a key={x.id} href={'#/card/' + encodeURIComponent(x.id)} className={'gcard' + (qty(x.id) ? '' : ' miss')}>
+          <CardImg card={x} />
+          {qty(x.id) > 0 && <span className="badge pixel">×{qty(x.id)}</span>}
+          <span className="gcap">{x.set.name}</span>
+        </a>
+      ))}
+    </div>
   )
 }

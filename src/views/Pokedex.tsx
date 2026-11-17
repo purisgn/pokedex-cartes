@@ -58,6 +58,14 @@ export function Pokedex() {
         </div>
       </section>
 
+      {have.size > 0 && (
+        <a className="world-entry" href="#/monde">
+          <span className="world-entry-txt"><b className="pixel">Mon monde</b><span>{have.size} Pokémon en liberté</span></span>
+          <span className="sprites">{[...have.keys()].slice(0, 4).map((id) => <Sprite key={id} id={id} size={64} />)}</span>
+          <Icon name="next" size={18} stroke={2.4} />
+        </a>
+      )}
+
       <div className="type-rail" role="radiogroup" aria-label="Type">
         <button className={'type-chip all' + (type ? '' : ' on')} onClick={() => setType('')} role="radio" aria-checked={!type}>Tous</button>
         {TYPE_KEYS.map((t) => (
