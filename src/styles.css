@@ -155,7 +155,7 @@ a:active, button:active:not(:disabled), .pill:active { scale: .96 }
 .stats.three { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; width: 100%; margin-top: 16px }
 .stat { display: grid; gap: 6px; min-width: 0 }
 .stat dt { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3) }
-.stat dd { margin: 0; height: 48px; border: 1px solid var(--border); border-radius: var(--r); display: grid; place-items: center; padding: 0 10px;
+.stat dd { margin: 0; height: 48px; border: 1px solid var(--border); border-radius: var(--r); display: flex; align-items: center; justify-content: center; gap: 1px; padding: 0 10px;
   font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums }
 .stats.three .stat dt { justify-content: center }
 .stat dd .pixel { font-size: 18px }
@@ -316,3 +316,17 @@ a:active, button:active:not(:disabled), .pill:active { scale: .96 }
 @keyframes rise { from { translate: 0 20px; opacity: 0 } }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important } }
+
+/* Sauvegarde en ligne */
+.syncbar { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 48px; padding: 0 14px; border-radius: var(--r); background: var(--accent-subtle); color: var(--accent); text-align: left; margin-bottom: 18px }
+.syncbar span { flex: 1; font-size: 13px; font-weight: 500 }
+.syncbar b { font-size: 13px; font-weight: 600 }
+.syncbar.error, .syncbar.off { background: var(--red-50); color: var(--red-600) }
+.syncbar.offline, .syncbar.saving { background: var(--bg-muted); color: var(--text-2) }
+.cloud { display: grid; gap: 10px; margin: -6px 0 22px; padding: 18px; border: 1px solid var(--border); border-radius: var(--r) }
+.cloud-label { font-size: 11px; font-weight: 500; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3) }
+.cloud-code { font-size: 22px; letter-spacing: .04em; color: var(--text); word-break: break-all; user-select: all }
+.cloud-restore { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 6px }
+.cloud-restore .btn { width: auto; padding: 0 18px; height: 48px }
+.cloud-restore .field input { text-transform: uppercase; letter-spacing: .03em }
+.cloud-msg { font-size: 13px; font-weight: 500; color: var(--accent) }

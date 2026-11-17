@@ -23,6 +23,8 @@ const PATHS = {
   pokeball: <><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h5.5m6 0h5.5" /><circle cx="12" cy="12" r="2.6" /></>,
   cards: <><rect x="4.5" y="3.5" width="10" height="14" rx="2" /><path d="M9 20.5h8.5a2 2 0 0 0 2-2V7.5" /></>,
   scan: <><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2" /><path d="M9 8.5h6v7H9z" /></>,
+  cloud: <path d="M7.5 18.5h9.5a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7 9.6a4.5 4.5 0 0 0 .5 8.9Z" />,
+  copy: <><rect x="8" y="8" width="11" height="11" rx="2.5" /><path d="M16 8V6.5A2.5 2.5 0 0 0 13.5 4h-7A2.5 2.5 0 0 0 4 6.5v7A2.5 2.5 0 0 0 6.5 16H8" /></>,
   folder: <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5H10l2 2h5.5A2.5 2.5 0 0 1 20 9.5v7a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5Z" />,
   weight: <><path d="M7 9h10l2 11H5Z" /><circle cx="12" cy="6" r="2.5" /></>,
   ruler: <path d="M12 4v16M8 4h8M8 20h8" />,
