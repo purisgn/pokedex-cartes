@@ -141,35 +141,32 @@ export function Header({ title, onBack, right }: { title: string; onBack?: () =>
   )
 }
 
-// Onglets en intercalaires de dossier : l'onglet actif est une languette du panneau blanc,
-// raccordée au bord par une courbe douce, qui glisse d'un onglet à l'autre.
-const TAB_H = 44, FLARE = 18, TOP_R = 14
-const SIDE = `M0 ${TAB_H + 1} C 11 ${TAB_H + 1} ${FLARE} ${TAB_H - 3} ${FLARE} ${TAB_H - 16} L ${FLARE} ${TOP_R} Q ${FLARE} 0 ${FLARE + TOP_R} 0 L ${FLARE + TOP_R} ${TAB_H + 1} Z`
+// Onglets collés en une seule barre arrondie (maquette UI Study). Une copie « active » de la barre est
+// découpée sur l'onglet choisi : la couleur glisse d'un onglet à l'autre, sans fondu entre deux teintes.
 export function FolderTabs<K extends string>({ tabs, value, onChange }: { tabs: readonly (readonly [K, string])[]; value: K; onChange: (k: K) => void }) {
   const box = useRef<HTMLDivElement>(null)
-  const [rects, setRects] = useState<{ x: number; w: number }[]>([])
+  const [clip, setClip] = useState<string>()
+  const i = Math.max(0, tabs.findIndex(([k]) => k === value))
   useLayoutEffect(() => {
     const el = box.current
     if (!el) return
-    const measure = () => setRects([...el.querySelectorAll('button')].map((b) => ({ x: b.offsetLeft, w: b.offsetWidth })))
+    const measure = () => {
+      const b = el.querySelectorAll<HTMLElement>('.segtabs-base button')[i]
+      if (!b) return
+      const W = el.offsetWidth, l = b.offsetLeft, r = W - l - b.offsetWidth
+      setClip(`inset(0 ${(r / W) * 100}% 0 ${(l / W) * 100}%)`)
+    }
     measure()
     const ro = new ResizeObserver(measure); ro.observe(el)
     return () => ro.disconnect()
-  }, [tabs.length])
-  const i = Math.max(0, tabs.findIndex(([k]) => k === value)), r = rects[i]
+  }, [i, tabs.length])
+  const row = (active: boolean) => tabs.map(([k, l]) => (
+    <button key={k} role={active ? undefined : 'tab'} aria-selected={active ? undefined : k === value} tabIndex={active ? -1 : 0} onClick={() => onChange(k)}>{l}</button>
+  ))
   return (
-    <div className="ftabs" ref={box} role="tablist">
-      {rects.map((q, k) => k !== i && <span key={k} className="ftab-veil" style={{ left: q.x, width: q.w }} />)}
-      {r && (
-        <span className="ftab-on" aria-hidden="true" style={{ width: r.w + FLARE * 2, transform: `translateX(${r.x - FLARE}px)` }}>
-          <svg width={FLARE + TOP_R} height={TAB_H + 1}><path d={SIDE} /></svg>
-          <i />
-          <svg width={FLARE + TOP_R} height={TAB_H + 1} style={{ scale: '-1 1' }}><path d={SIDE} /></svg>
-        </span>
-      )}
-      {tabs.map(([k, l]) => (
-        <button key={k} role="tab" aria-selected={k === value} className={k === value ? 'on' : ''} onClick={() => onChange(k)}>{l}</button>
-      ))}
+    <div className="segtabs" ref={box}>
+      <div className="segtabs-base" role="tablist">{row(false)}</div>
+      <div className="segtabs-on" aria-hidden="true" style={{ clipPath: clip }}>{row(true)}</div>
     </div>
   )
 }

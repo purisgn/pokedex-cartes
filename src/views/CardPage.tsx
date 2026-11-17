@@ -45,17 +45,17 @@ export function CardPage({ id }: { id: string }) {
 
       <div className="mon-body">
         <FolderTabs tabs={[['infos', 'Infos'], ['moves', pokemon ? 'Attaques' : 'Effet'], ['price', 'Prix'], ['versions', 'Versions']] as const} value={tab} onChange={setTab} />
-        <div className="mon-panel">
+        <div className="mon-panel"><div className="tab-pane" key={tab}>
           {tab === 'infos' && <Infos card={c} live={live.data} />}
           {tab === 'moves' && <Moves live={live.data} loading={!live.done} />}
           {tab === 'price' && <Price card={c} live={live.data} owned={n} />}
           {tab === 'versions' && <Versions card={c} />}
-        </div>
+        </div></div>
       </div>
 
       <nav className="mon-bar card-bar" aria-label="Ma collection">
         <button onClick={() => setQty(c.id, n - 1)} disabled={!n} aria-label="Retirer un exemplaire"><Icon name="minus" size={20} stroke={2.2} /></button>
-        <span className="card-bar-n"><b className="pixel">{n}</b>{n > 1 ? 'exemplaires' : 'exemplaire'}</span>
+        <span className="card-bar-n"><b className="pixel num-pop" key={n}>{n}</b>{n > 1 ? 'exemplaires' : 'exemplaire'}</span>
         <button className="card-bar-add" onClick={() => setQty(c.id, n + 1)} aria-label="Ajouter un exemplaire"><Icon name="plus" size={20} stroke={2.6} /></button>
       </nav>
     </div>

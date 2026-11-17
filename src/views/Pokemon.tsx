@@ -46,12 +46,12 @@ export function Pokemon({ id }: { id: number }) {
       <div className="mon-body">
         <FolderTabs tabs={[['about', 'Infos'], ['stats', 'Stats'], ['evo', 'Évolution'], ['cards', `Cartes${owned.length ? ' · ' + owned.length : ''}`]] as const} value={tab} onChange={setTab} />
 
-        <div className="mon-panel">
+        <div className="mon-panel"><div className="tab-pane" key={tab}>
         {tab === 'about' && <About info={info.data} done={info.done} types={p.types} fallback={`${p.name}, Pokémon de ${GENS[p.gen - 1]} (${p.gen}ᵉ génération).`} />}
         {tab === 'stats' && <Stats info={info.data} done={info.done} />}
         {tab === 'evo' && <Evolutions info={info.data} done={info.done} current={id} />}
         {tab === 'cards' && <Cards all={all} owned={owned} name={p.name} />}
-        </div>
+        </div></div>
       </div>
 
       <nav className="mon-bar" aria-label="Actions">
